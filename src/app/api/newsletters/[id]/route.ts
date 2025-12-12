@@ -8,6 +8,7 @@ import {
   type UpdateNewsletterInput,
 } from "@/lib/validators/newsletter";
 import Newsletter from "@/models/Newsletter";
+import User from "@/models/User";
 
 interface Params {
   params: Promise<{
@@ -20,9 +21,10 @@ function isValidObjectId(id: string) {
 }
 
 export async function GET(_req: NextRequest, { params }: Params) {
-  const session = await getServerSession(authOptions);
+  await connectToDatabase();
 
-  if (!session?.user?.id) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -32,11 +34,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  await connectToDatabase();
-  const newsletter = await Newsletter.findOne({
-    _id: id,
-    userId: session.user.id,
-  });
+  const newsletter = await Newsletter.findById(id);
 
   if (!newsletter) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -46,10 +44,16 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const session = await getServerSession(authOptions);
+  await connectToDatabase();
 
-  if (!session?.user?.id) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await User.findOne({ email: session.user.email });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   const { id } = await params;
@@ -69,10 +73,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     );
   }
 
-  await connectToDatabase();
-
   const newsletter = await Newsletter.findOneAndUpdate(
-    { _id: id, userId: session.user.id },
+    { _id: id, userId: user._id },
     { $set: payload },
     { new: true }
   );
@@ -85,10 +87,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const session = await getServerSession(authOptions);
+  await connectToDatabase();
 
-  if (!session?.user?.id) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await User.findOne({ email: session.user.email });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   const { id } = await params;
@@ -97,11 +105,9 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  await connectToDatabase();
-
   const deleted = await Newsletter.findOneAndDelete({
     _id: id,
-    userId: session.user.id,
+    userId: user._id,
   });
 
   if (!deleted) {

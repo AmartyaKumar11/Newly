@@ -28,8 +28,10 @@ async function testConnection() {
     console.log("State:", state === 1 ? "connected" : "unknown");
     
     // Test a simple operation
-    const collections = await mongoose.connection.db.listCollections().toArray();
-    console.log("\nCollections:", collections.map(c => c.name));
+    if (mongoose.connection.db) {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      console.log("\nCollections:", collections.map(c => c.name));
+    }
     
     await mongoose.disconnect();
     console.log("\n✅ Test completed successfully!");
