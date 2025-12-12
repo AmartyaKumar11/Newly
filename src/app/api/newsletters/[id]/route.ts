@@ -10,9 +10,9 @@ import {
 import Newsletter from "@/models/Newsletter";
 
 interface Params {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 function isValidObjectId(id: string) {
@@ -26,13 +26,15 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!isValidObjectId(params.id)) {
+  const { id } = await params;
+
+  if (!isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   await connectToDatabase();
   const newsletter = await Newsletter.findOne({
-    _id: params.id,
+    _id: id,
     userId: session.user.id,
   });
 
@@ -50,7 +52,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!isValidObjectId(params.id)) {
+  const { id } = await params;
+
+  if (!isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -68,7 +72,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   await connectToDatabase();
 
   const newsletter = await Newsletter.findOneAndUpdate(
-    { _id: params.id, userId: session.user.id },
+    { _id: id, userId: session.user.id },
     { $set: payload },
     { new: true }
   );
@@ -87,14 +91,16 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!isValidObjectId(params.id)) {
+  const { id } = await params;
+
+  if (!isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   await connectToDatabase();
 
   const deleted = await Newsletter.findOneAndDelete({
-    _id: params.id,
+    _id: id,
     userId: session.user.id,
   });
 
