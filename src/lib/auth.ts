@@ -1,8 +1,6 @@
-import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { connectToDatabase } from "@/lib/db";
-import clientPromise from "@/lib/mongodb";
 import User from "@/models/User";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -13,7 +11,6 @@ if (!googleClientId || !googleClientSecret) {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise),
   session: {
     strategy: "jwt",
   },
@@ -27,39 +24,49 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
-      await connectToDatabase();
-
+    async signIn({ user, account }) {
       if (!user.email) {
         return false;
       }
 
+      await connectToDatabase();
+
+      // Find or create user in our database
       const existingUser = await User.findOne({ email: user.email });
       if (!existingUser) {
         await User.create({
           email: user.email,
-          name: user.name,
-          image: user.image,
+          name: user.name || undefined,
+          image: user.image || undefined,
         });
+      } else {
+        // Update user info if it changed
+        await User.updateOne(
+          { email: user.email },
+          {
+            $set: {
+              name: user.name || existingUser.name,
+              image: user.image || existingUser.image,
+            },
+          }
+        );
       }
 
       return true;
     },
-    async jwt({ token }) {
+    async jwt({ token, user, account }) {
+      // Initial sign in
+      if (account && user) {
+        token.accessToken = account.access_token;
+        token.id = user.id || user.email;
+      }
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
+      if (session.user) {
+        session.user.id = (token.id as string) || (token.sub as string);
       }
       return session;
-    },
-  },
-  events: {
-    async linkAccount({ user }) {
-      if (!user?.email) return;
-      await connectToDatabase();
-      await User.updateOne({ email: user.email }, { $set: { email: user.email } });
     },
   },
 };
