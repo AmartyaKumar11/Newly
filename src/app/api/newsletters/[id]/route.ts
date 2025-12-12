@@ -28,13 +28,21 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const user = await User.findOne({ email: session.user.email });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
   const { id } = await params;
 
   if (!isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const newsletter = await Newsletter.findById(id);
+  const newsletter = await Newsletter.findOne({
+    _id: id,
+    userId: user._id,
+  });
 
   if (!newsletter) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

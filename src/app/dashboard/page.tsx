@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import Newsletter from "@/models/Newsletter";
 import User from "@/models/User";
-import { CreateNewsletterButton } from "@/components/dashboard/CreateNewsletterButton";
+import { CreateNewsletterButton } from "./CreateNewsletterButton";
 
 async function getNewsletters(email: string) {
   await connectToDatabase();
