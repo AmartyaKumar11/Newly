@@ -1,27 +1,91 @@
-import { Model, Schema, model, models } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
-export interface INewsletter {
-  title: string;
-  userId: Schema.Types.ObjectId;
-  structureJSON: Record<string, unknown>;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-export type NewsletterModel = Model<INewsletter>;
-
-const NewsletterSchema = new Schema<INewsletter>(
+const BlockSchema = new Schema(
   {
-    title: { type: String, required: true, trim: true },
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    structureJSON: { type: Schema.Types.Mixed, default: {} },
+    id: { type: String, required: true },
+    type: { type: String, required: true },
+    content: { type: Schema.Types.Mixed, default: {} },
+    styles: { type: Schema.Types.Mixed, default: {} },
+    position: { type: Schema.Types.Mixed, default: {} },
+    children: { type: [Schema.Types.Mixed], default: [] }
+  },
+  { _id: false }
+);
+
+const VersionSchema = new Schema(
+  {
+    version: { type: Number },
+    structureJSON: { type: Schema.Types.Mixed },
+    createdAt: { type: Date, default: Date.now }
+  },
+  { _id: false }
+);
+
+const NewsletterSchema = new Schema(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true
+    },
+
+    title: {
+      type: String,
+      default: "Untitled Newsletter",
+      trim: true
+    },
+
+    description: {
+      type: String,
+      default: ""
+    },
+
+    status: {
+      type: String,
+      enum: ["draft", "published", "archived"],
+      default: "draft"
+    },
+
+    blocks: {
+      type: [BlockSchema],
+      default: []
+    },
+
+    structureJSON: {
+      type: Schema.Types.Mixed,
+      default: {}
+    },
+
+    aiMetadata: {
+      keywords: { type: [String], default: [] },
+      tone: { type: String, default: "" },
+      topic: { type: String, default: "" }
+    },
+
+    versions: {
+      type: [VersionSchema],
+      default: []
+    },
+
+    publishedURL: {
+      type: String,
+      default: null
+    },
+
+    publishedAt: {
+      type: Date,
+      default: null
+    },
+
+    lastAutosave: {
+      type: Date,
+      default: null
+    }
   },
   { timestamps: true }
 );
 
-const Newsletter: NewsletterModel =
-  (models.Newsletter as NewsletterModel) ||
-  model<INewsletter>("Newsletter", NewsletterSchema);
+NewsletterSchema.index({ userId: 1, status: 1 });
 
-export default Newsletter;
-
+export default models.Newsletter || model("Newsletter", NewsletterSchema);
