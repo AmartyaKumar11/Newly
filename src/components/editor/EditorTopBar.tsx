@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useEditorStore } from "@/stores/editorStore";
+import { useEditorStateStore } from "@/stores/editorStateStore";
 
 interface EditorTopBarProps {
   newsletterTitle?: string;
@@ -10,6 +11,7 @@ interface EditorTopBarProps {
 
 export function EditorTopBar({ newsletterTitle, onTitleChange }: EditorTopBarProps) {
   const { isDirty, isSaving, lastSaved } = useEditorStore();
+  const { canUndo, canRedo, undo, redo } = useEditorStateStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(newsletterTitle || "Untitled Newsletter");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -86,11 +88,12 @@ export function EditorTopBar({ newsletterTitle, onTitleChange }: EditorTopBarPro
         </span>
       </div>
       <div className="flex items-center gap-2">
-        {/* Undo button - disabled in Phase 2 */}
+        {/* Undo button */}
         <button
-          disabled
-          className="flex h-8 w-8 items-center justify-center rounded border border-zinc-300 text-zinc-400 transition disabled:cursor-not-allowed dark:border-zinc-700"
-          title="Undo (coming soon)"
+          onClick={undo}
+          disabled={!canUndo()}
+          className="flex h-8 w-8 items-center justify-center rounded border border-zinc-300 text-zinc-600 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-blue-400 dark:hover:text-blue-400 dark:disabled:text-zinc-600"
+          title="Undo (Ctrl+Z)"
         >
           <svg
             className="h-4 w-4"
@@ -106,11 +109,12 @@ export function EditorTopBar({ newsletterTitle, onTitleChange }: EditorTopBarPro
             />
           </svg>
         </button>
-        {/* Redo button - disabled in Phase 2 */}
+        {/* Redo button */}
         <button
-          disabled
-          className="flex h-8 w-8 items-center justify-center rounded border border-zinc-300 text-zinc-400 transition disabled:cursor-not-allowed dark:border-zinc-700"
-          title="Redo (coming soon)"
+          onClick={redo}
+          disabled={!canRedo()}
+          className="flex h-8 w-8 items-center justify-center rounded border border-zinc-300 text-zinc-600 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-blue-400 dark:hover:text-blue-400 dark:disabled:text-zinc-600"
+          title="Redo (Ctrl+Shift+Z)"
         >
           <svg
             className="h-4 w-4"

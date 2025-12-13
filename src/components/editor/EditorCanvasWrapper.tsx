@@ -15,6 +15,10 @@ export function EditorCanvasWrapper() {
     clearSelection,
     deleteBlock,
     duplicateBlock,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useEditorStateStore();
 
   const sortedBlocks = blocks.sort((a, b) => a.zIndex - b.zIndex);
@@ -47,12 +51,24 @@ export function EditorCanvasWrapper() {
             // This will be handled by the store
           }
         }
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        // Undo (Cmd/Ctrl + Z)
+        if (canUndo()) {
+          e.preventDefault();
+          undo();
+        }
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+        // Redo (Cmd/Ctrl + Y or Cmd/Ctrl + Shift + Z)
+        if (canRedo()) {
+          e.preventDefault();
+          redo();
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedBlockId, deleteBlock, duplicateBlock, clearSelection]);
+  }, [selectedBlockId, deleteBlock, duplicateBlock, clearSelection, undo, redo, canUndo, canRedo]);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only clear selection if clicking directly on canvas, not on a block

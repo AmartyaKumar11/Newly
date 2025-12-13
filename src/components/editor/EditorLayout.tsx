@@ -43,6 +43,8 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitializedRef = useRef(false);
   const isInitialLoadRef = useRef(true);
+  const blocksHashRef = useRef<string>("");
+  const isSavingRef = useRef(false);
 
   const { blocks, setBlocks } = useEditorStateStore();
   const { setDirty } = useEditorStore();
@@ -94,25 +96,38 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
     loadNewsletter();
   }, [newsletterId, router, setNewsletterId, setLifecycleState]);
 
-  // Watch for block changes and mark as dirty
+  // Watch for block changes and mark as dirty (using hash to prevent unnecessary updates)
   useEffect(() => {
     if (isInitialLoadRef.current || lifecycleState !== "ready") {
       return;
     }
 
-    setDirty(true);
+    // Create hash of blocks to detect actual changes
+    const blocksHash = JSON.stringify(blocks);
+    
+    // Only mark dirty if blocks actually changed
+    if (blocksHash !== blocksHashRef.current) {
+      blocksHashRef.current = blocksHash;
+      setDirty(true);
+    }
   }, [blocks, lifecycleState, setDirty]);
 
   // Autosave with debounce (2 seconds after last change)
   const performAutosave = useCallback(async () => {
-    if (!isDirty || isSaving || lifecycleState !== "ready") {
+    // Prevent concurrent saves
+    if (isSavingRef.current || !isDirty || isSaving || lifecycleState !== "ready") {
       return;
     }
 
+    // Capture current blocks hash to ensure we're saving the latest state
+    const currentHash = blocksHashRef.current;
+    const blocksToSave = blocks;
+
     try {
+      isSavingRef.current = true;
       setSaving(true);
 
-      const serializedBlocks = serializeBlocks(blocks);
+      const serializedBlocks = serializeBlocks(blocksToSave);
 
       const response = await fetch(`/api/newsletters/update`, {
         method: "POST",
@@ -128,20 +143,29 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
 
       if (response.ok) {
         const data = await response.json();
-        setLastSaved(new Date());
-        setDirty(false);
-        if (data.updated) {
-          setNewsletter(data.updated);
+        
+        // Only clear dirty if hash hasn't changed during save (last write wins)
+        if (blocksHashRef.current === currentHash) {
+          setLastSaved(new Date());
+          setDirty(false);
+          if (data.updated) {
+            setNewsletter(data.updated);
+          }
+        } else {
+          // Blocks changed during save, mark dirty again to trigger another save
+          setDirty(true);
         }
       }
     } catch (err) {
       console.error("Autosave failed:", err);
+      // Don't clear dirty flag on error - will retry
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   }, [blocks, isDirty, isSaving, lifecycleState, newsletterId, newsletter?.structureJSON, setSaving, setLastSaved, setDirty]);
 
-  // Debounced autosave
+  // Debounced autosave (using hash to prevent unnecessary triggers)
   useEffect(() => {
     if (lifecycleState !== "ready" || !isDirty || isInitialLoadRef.current) {
       return;
@@ -162,7 +186,7 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [blocks, lifecycleState, isDirty, performAutosave]);
+  }, [blocksHashRef.current, lifecycleState, isDirty, performAutosave]);
 
   // Warn before unload if there are unsaved changes
   useEffect(() => {

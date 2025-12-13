@@ -3,6 +3,12 @@ import type { Block, Position, Size, BlockStyles } from "@/types/blocks";
 
 export type EditorMode = "idle" | "dragging" | "resizing";
 
+interface HistoryState {
+  past: Block[][];
+  present: Block[];
+  future: Block[][];
+}
+
 interface EditorStateStore {
   // Blocks
   blocks: Block[];
@@ -32,6 +38,20 @@ interface EditorStateStore {
   resizeBlock: (id: string, size: Size) => void;
   updateBlockStyles: (id: string, styles: Partial<BlockStyles>) => void;
 
+  // Action grouping for AI operations
+  startActionGroup: () => void;
+  endActionGroup: () => void;
+  isActionGrouping: boolean;
+
+  // Undo/Redo
+  history: HistoryState;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+  undo: () => void;
+  redo: () => void;
+  pushHistory: (blocks: Block[]) => void;
+  clearHistory: () => void;
+
   // Selectors (derived state)
   getBlock: (id: string) => Block | undefined;
   getSelectedBlock: () => Block | undefined;
@@ -41,18 +61,40 @@ interface EditorStateStore {
   reset: () => void;
 }
 
+const MAX_HISTORY_SIZE = 50;
+
+const createHistoryState = (blocks: Block[]): HistoryState => ({
+  past: [],
+  present: blocks,
+  future: [],
+});
+
 const initialState = {
   blocks: [],
   selectedBlockId: null,
   hoveredBlockId: null,
   editorMode: "idle" as EditorMode,
   zoomLevel: 1,
+  history: createHistoryState([]),
+  isActionGrouping: false,
 };
+
+// Deep clone blocks for history
+function cloneBlocks(blocks: Block[]): Block[] {
+  return JSON.parse(JSON.stringify(blocks));
+}
 
 export const useEditorStateStore = create<EditorStateStore>((set, get) => ({
   ...initialState,
 
-  setBlocks: (blocks) => set({ blocks }),
+  setBlocks: (blocks) => {
+    const current = get();
+    // Only push to history if blocks actually changed
+    if (JSON.stringify(current.blocks) !== JSON.stringify(blocks)) {
+      get().pushHistory(blocks);
+    }
+    set({ blocks });
+  },
 
   selectBlock: (id) => set({ selectedBlockId: id }),
   setHoveredBlock: (id) => set({ hoveredBlockId: id }),
@@ -62,23 +104,28 @@ export const useEditorStateStore = create<EditorStateStore>((set, get) => ({
 
   setZoomLevel: (level) => set({ zoomLevel: level }),
 
-  addBlock: (block) =>
-    set((state) => ({
-      blocks: [...state.blocks, block],
-    })),
+  addBlock: (block) => {
+    const newBlocks = [...get().blocks, block];
+    get().pushHistory(newBlocks);
+    set({ blocks: newBlocks });
+  },
 
-  updateBlock: (id, updates) =>
-    set((state) => ({
-      blocks: state.blocks.map((block) =>
-        block.id === id ? { ...block, ...updates } : block
-      ),
-    })),
+  updateBlock: (id, updates) => {
+    const newBlocks = get().blocks.map((block) =>
+      block.id === id ? { ...block, ...updates } : block
+    );
+    get().pushHistory(newBlocks);
+    set({ blocks: newBlocks });
+  },
 
-  deleteBlock: (id) =>
-    set((state) => ({
-      blocks: state.blocks.filter((block) => block.id !== id),
-      selectedBlockId: state.selectedBlockId === id ? null : state.selectedBlockId,
-    })),
+  deleteBlock: (id) => {
+    const newBlocks = get().blocks.filter((block) => block.id !== id);
+    get().pushHistory(newBlocks);
+    set({
+      blocks: newBlocks,
+      selectedBlockId: get().selectedBlockId === id ? null : get().selectedBlockId,
+    });
+  },
 
   duplicateBlock: (id) => {
     const block = get().getBlock(id);
@@ -114,6 +161,98 @@ export const useEditorStateStore = create<EditorStateStore>((set, get) => ({
     });
   },
 
+  // Action grouping for AI operations
+  startActionGroup: () => set({ isActionGrouping: true }),
+  endActionGroup: () => {
+    const current = get();
+    if (current.isActionGrouping) {
+      // Push current state to history when ending group
+      get().pushHistory(current.blocks);
+      set({ isActionGrouping: false });
+    }
+  },
+
+  // Undo/Redo implementation
+  canUndo: () => {
+    const history = get().history;
+    return history.past.length > 0;
+  },
+
+  canRedo: () => {
+    const history = get().history;
+    return history.future.length > 0;
+  },
+
+  undo: () => {
+    const history = get().history;
+    if (history.past.length === 0) return;
+
+    const previous = history.past[history.past.length - 1];
+    const newPast = history.past.slice(0, -1);
+    const newFuture = [history.present, ...history.future];
+
+    const newHistory: HistoryState = {
+      past: newPast,
+      present: previous,
+      future: newFuture.slice(0, MAX_HISTORY_SIZE),
+    };
+
+    set({
+      blocks: cloneBlocks(previous),
+      history: newHistory,
+    });
+  },
+
+  redo: () => {
+    const history = get().history;
+    if (history.future.length === 0) return;
+
+    const next = history.future[0];
+    const newPast = [...history.past, history.present];
+    const newFuture = history.future.slice(1);
+
+    const newHistory: HistoryState = {
+      past: newPast.slice(-MAX_HISTORY_SIZE),
+      present: next,
+      future: newFuture,
+    };
+
+    set({
+      blocks: cloneBlocks(next),
+      history: newHistory,
+    });
+  },
+
+  pushHistory: (blocks: Block[]) => {
+    const current = get();
+    const history = current.history;
+    
+    // Don't push if we're in the middle of an action group
+    if (current.isActionGrouping) {
+      return;
+    }
+
+    // Don't push if blocks haven't changed
+    if (JSON.stringify(history.present) === JSON.stringify(blocks)) {
+      return;
+    }
+
+    const newHistory: HistoryState = {
+      past: [...history.past, history.present].slice(-MAX_HISTORY_SIZE),
+      present: cloneBlocks(blocks),
+      future: [], // Clear future when new action is performed
+    };
+
+    set({ history: newHistory });
+  },
+
+  clearHistory: () => {
+    const current = get();
+    set({
+      history: createHistoryState(current.blocks),
+    });
+  },
+
   // Selectors
   getBlock: (id) => {
     return get().blocks.find((block) => block.id === id);
@@ -128,5 +267,10 @@ export const useEditorStateStore = create<EditorStateStore>((set, get) => ({
     return [...get().blocks].sort((a, b) => a.zIndex - b.zIndex);
   },
 
-  reset: () => set(initialState),
+  reset: () => {
+    set({
+      ...initialState,
+      history: createHistoryState([]),
+    });
+  },
 }));

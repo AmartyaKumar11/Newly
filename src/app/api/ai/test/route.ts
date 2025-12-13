@@ -1,30 +1,40 @@
 import { NextResponse } from "next/server";
-import { generateText } from "@/services/gemini";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { connectToDatabase } from "@/lib/db";
+import User from "@/models/User";
+
+// DEPRECATED: Use /api/ai/gateway instead
+// This route is kept for backward compatibility but should not be used for new features
+// All AI operations must go through the gateway for rate limiting and safety
 
 export async function GET() {
-  try {
-    const text = await generateText(
-      "Say hello from Newly in one concise sentence."
-    );
-    return NextResponse.json({ text });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Gemini request failed", details: `${error}` },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    { 
+      error: "This endpoint is deprecated. Use /api/ai/gateway instead.",
+      message: "All AI operations must go through the gateway for rate limiting and safety."
+    },
+    { status: 410 } // Gone
+  );
 }
 
 export async function POST(request: Request) {
-  try {
-    const { prompt } = await request.json();
-    const text = await generateText(prompt || "Draft a newsletter greeting.");
-    return NextResponse.json({ text });
-  } catch (error) {
+  // Redirect to gateway with authentication check
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user?.email) {
     return NextResponse.json(
-      { error: "Gemini request failed", details: `${error}` },
-      { status: 500 }
+      { error: "Unauthorized" },
+      { status: 401 }
     );
   }
+
+  return NextResponse.json(
+    { 
+      error: "This endpoint is deprecated. Use /api/ai/gateway instead.",
+      message: "All AI operations must go through the gateway for rate limiting and safety."
+    },
+    { status: 410 } // Gone
+  );
 }
 
