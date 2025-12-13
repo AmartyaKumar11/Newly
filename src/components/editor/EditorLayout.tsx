@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useEditorStore } from "@/stores/editorStore";
+import { useEditorStateStore } from "@/stores/editorStateStore";
+import { deserializeBlocks, serializeBlocks } from "@/utils/blockSerialization";
 import { EditorErrorBoundary } from "./EditorErrorBoundary";
 import { EditorTopBar } from "./EditorTopBar";
 import { EditorSidebar } from "./EditorSidebar";
@@ -38,8 +40,12 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
   } = useEditorStore();
 
   const [newsletter, setNewsletter] = useState<Newsletter | null>(null);
-  const autosaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitializedRef = useRef(false);
+  const isInitialLoadRef = useRef(true);
+
+  const { blocks, setBlocks } = useEditorStateStore();
+  const { setDirty } = useEditorStore();
 
   // Initialize editor lifecycle
   useEffect(() => {
@@ -70,7 +76,15 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
 
         const data = await response.json();
         setNewsletter(data.newsletter);
+        
+        // Load blocks into editor state
+        if (data.newsletter.blocks && Array.isArray(data.newsletter.blocks)) {
+          const deserializedBlocks = deserializeBlocks(data.newsletter.blocks);
+          setBlocks(deserializedBlocks);
+        }
+        
         setLifecycleState("ready");
+        isInitialLoadRef.current = false;
       } catch (err) {
         console.error("Failed to load newsletter:", err);
         setLifecycleState("error");
@@ -80,64 +94,75 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
     loadNewsletter();
   }, [newsletterId, router, setNewsletterId, setLifecycleState]);
 
-  // Autosave logic
+  // Watch for block changes and mark as dirty
   useEffect(() => {
-    if (lifecycleState !== "ready" || !isDirty) {
+    if (isInitialLoadRef.current || lifecycleState !== "ready") {
       return;
     }
 
-    // Clear any existing interval
-    if (autosaveIntervalRef.current) {
-      clearInterval(autosaveIntervalRef.current);
+    setDirty(true);
+  }, [blocks, lifecycleState, setDirty]);
+
+  // Autosave with debounce (2 seconds after last change)
+  const performAutosave = useCallback(async () => {
+    if (!isDirty || isSaving || lifecycleState !== "ready") {
+      return;
     }
 
-    // Set up autosave interval (every 30 seconds)
-    autosaveIntervalRef.current = setInterval(async () => {
-      if (!isDirty || isSaving) {
-        return;
-      }
+    try {
+      setSaving(true);
 
-      try {
-        setSaving(true);
+      const serializedBlocks = serializeBlocks(blocks);
 
-        const response = await fetch(`/api/newsletters/update`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: newsletterId,
-            // In the future, this will include the actual editor state
-            // For now, we send empty blocks/structureJSON to update lastAutosave
-            blocks: newsletter?.blocks || [],
-            structureJSON: newsletter?.structureJSON || {},
-          }),
-        });
+      const response = await fetch(`/api/newsletters/update`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: newsletterId,
+          blocks: serializedBlocks,
+          structureJSON: newsletter?.structureJSON || {},
+        }),
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          setLastSaved(new Date());
-          // Update newsletter data if returned
-          if (data.updated) {
-            setNewsletter(data.updated);
-          }
-          // Note: We don't set isDirty to false here because we're not
-          // actually saving meaningful editor state yet. This will be handled
-          // when the block system is implemented.
+      if (response.ok) {
+        const data = await response.json();
+        setLastSaved(new Date());
+        setDirty(false);
+        if (data.updated) {
+          setNewsletter(data.updated);
         }
-      } catch (err) {
-        console.error("Autosave failed:", err);
-      } finally {
-        setSaving(false);
       }
-    }, 30000); // 30 seconds
+    } catch (err) {
+      console.error("Autosave failed:", err);
+    } finally {
+      setSaving(false);
+    }
+  }, [blocks, isDirty, isSaving, lifecycleState, newsletterId, newsletter?.structureJSON, setSaving, setLastSaved, setDirty]);
+
+  // Debounced autosave
+  useEffect(() => {
+    if (lifecycleState !== "ready" || !isDirty || isInitialLoadRef.current) {
+      return;
+    }
+
+    // Clear existing timeout
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    // Set new timeout (2 seconds debounce)
+    autosaveTimeoutRef.current = setTimeout(() => {
+      performAutosave();
+    }, 2000);
 
     return () => {
-      if (autosaveIntervalRef.current) {
-        clearInterval(autosaveIntervalRef.current);
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [lifecycleState, isDirty, isSaving, newsletterId, newsletter?.blocks, newsletter?.structureJSON, setSaving, setLastSaved]);
+  }, [blocks, lifecycleState, isDirty, performAutosave]);
 
   // Warn before unload if there are unsaved changes
   useEffect(() => {
@@ -157,11 +182,35 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
     };
   }, [isDirty]);
 
+  // Handle title change
+  const handleTitleChange = useCallback(async (newTitle: string) => {
+    if (!newsletter || newTitle === newsletter.title) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/newsletters/${newsletterId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: newTitle }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNewsletter(data.newsletter);
+      }
+    } catch (err) {
+      console.error("Failed to update title:", err);
+    }
+  }, [newsletter, newsletterId]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (autosaveIntervalRef.current) {
-        clearInterval(autosaveIntervalRef.current);
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
       }
       reset();
     };
@@ -220,7 +269,10 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
     <EditorErrorBoundary newsletterId={newsletterId}>
       <div className="flex h-screen flex-col overflow-hidden bg-white dark:bg-zinc-950">
         {/* Top toolbar */}
-        <EditorTopBar newsletterTitle={newsletter?.title} />
+        <EditorTopBar
+          newsletterTitle={newsletter?.title}
+          onTitleChange={handleTitleChange}
+        />
 
         {/* Main content area */}
         <div className="flex flex-1 overflow-hidden">
