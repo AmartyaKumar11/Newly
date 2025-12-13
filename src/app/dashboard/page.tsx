@@ -7,7 +7,14 @@ import Newsletter from "@/models/Newsletter";
 import User from "@/models/User";
 import { CreateNewsletterButton } from "./CreateNewsletterButton";
 
-async function getNewsletters(email: string) {
+interface NewsletterData {
+  _id: { toString(): string };
+  title?: string;
+  status?: string;
+  updatedAt?: Date | string;
+}
+
+async function getNewsletters(email: string): Promise<NewsletterData[]> {
   await connectToDatabase();
   const user = await User.findOne({ email });
   if (!user) return [];
@@ -16,7 +23,7 @@ async function getNewsletters(email: string) {
     .sort({ updatedAt: -1 })
     .lean();
 
-  return newsletters;
+  return newsletters as NewsletterData[];
 }
 
 function formatDate(date: Date | string) {

@@ -10,6 +10,8 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/editor/:path*"
-  ]
+  ],
+  // Explicitly exclude API routes from middleware
+  // This ensures NextAuth API routes work correctly
 };
 
