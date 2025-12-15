@@ -7,9 +7,10 @@ import { useEditorStateStore } from "@/stores/editorStateStore";
 interface EditorTopBarProps {
   newsletterTitle?: string;
   onTitleChange?: (title: string) => void;
+  onAIClick?: () => void;
 }
 
-export function EditorTopBar({ newsletterTitle, onTitleChange }: EditorTopBarProps) {
+export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: EditorTopBarProps) {
   const { isDirty, isSaving, lastSaved } = useEditorStore();
   const { canUndo, canRedo, undo, redo } = useEditorStateStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -88,6 +89,29 @@ export function EditorTopBar({ newsletterTitle, onTitleChange }: EditorTopBarPro
         </span>
       </div>
       <div className="flex items-center gap-2">
+        {/* AI Generate Button */}
+        {onAIClick && (
+          <button
+            onClick={onAIClick}
+            className="flex items-center gap-2 rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600"
+            title="Generate with AI"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            <span>Generate with AI</span>
+          </button>
+        )}
         {/* Undo button */}
         <button
           onClick={undo}

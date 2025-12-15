@@ -1,14 +1,33 @@
+/**
+ * AI Gateway - Phase 3.1
+ * 
+ * Single entry point for all AI operations.
+ * Enforces rate limiting, authentication, schema validation, and cost controls.
+ * 
+ * Flow:
+ * 1. Request enters gateway
+ * 2. Auth check
+ * 3. Rate limiting
+ * 4. Logging
+ * 5. Build prompt using frozen contract
+ * 6. Call Gemini wrapper
+ * 7. Receive raw output
+ * 8. Parse JSON (with retry on failure)
+ * 9. Validate schema
+ * 10. Translate AI output → editor blocks
+ * 11. Return editor-ready blocks (no insertion)
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { checkRateLimit, validateTokenLimit } from "@/lib/rateLimit";
-import { generateText } from "@/services/gemini";
+import { callGemini } from "@/services/gemini";
+import { buildGeminiPrompt, buildCorrectionPrompt } from "@/services/geminiPrompt";
 import { connectToDatabase } from "@/lib/db";
 import { logAIOperation } from "@/lib/aiLogger";
+import { translateAIOutputToEditorBlocks } from "@/utils/aiTranslation";
 import User from "@/models/User";
-
-// AI Gateway - Single entry point for all AI operations
-// Enforces rate limiting, authentication, and cost controls
 
 interface AIRequest {
   prompt: string;
@@ -18,6 +37,7 @@ interface AIRequest {
 
 const MAX_TOKENS_PER_REQUEST = 10000;
 const MAX_REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+const MAX_JSON_PARSE_RETRIES = 1; // Retry once on parse failure
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -102,43 +122,198 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Execute AI operation with timeout
+    // 5. Build prompt using frozen contract (only for generate_blocks operation)
+    // For generate_text, use the user prompt directly (backward compatibility)
+    let fullPrompt: string;
+    let isBlocksOperation = body.operation === "generate_blocks";
+    
+    if (isBlocksOperation) {
+      fullPrompt = buildGeminiPrompt(body.prompt);
+    } else {
+      fullPrompt = body.prompt; // Legacy text generation
+    }
+
+    // 6. Execute AI operation with timeout and retry logic
+    let rawOutput: string;
+    let parseAttempts = 0;
+    let parseError: Error | null = null;
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), MAX_REQUEST_TIMEOUT_MS);
 
     try {
-      const result = await Promise.race([
-        generateText(body.prompt),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Request timeout")), MAX_REQUEST_TIMEOUT_MS);
-        }),
-      ]) as string;
+      while (parseAttempts <= MAX_JSON_PARSE_RETRIES) {
+        try {
+          // Call Gemini with appropriate prompt
+          if (parseAttempts === 0) {
+            rawOutput = await Promise.race([
+              callGemini(fullPrompt),
+              new Promise<string>((_, reject) => {
+                setTimeout(() => reject(new Error("Request timeout")), MAX_REQUEST_TIMEOUT_MS);
+              }),
+            ]);
+          } else {
+            // Retry with correction prompt
+            const correctionPrompt = buildCorrectionPrompt(
+              body.prompt,
+              rawOutput!,
+              parseError?.message || "JSON parse failed"
+            );
+            rawOutput = await Promise.race([
+              callGemini(correctionPrompt),
+              new Promise<string>((_, reject) => {
+                setTimeout(() => reject(new Error("Request timeout")), MAX_REQUEST_TIMEOUT_MS);
+              }),
+            ]);
+          }
+
+          // If this is not a blocks operation, return raw text (legacy behavior)
+          if (!isBlocksOperation) {
+            clearTimeout(timeoutId);
+            const duration = Date.now() - startTime;
+
+            logAIOperation({
+              userId: user._id.toString(),
+              userEmail: user.email,
+              operation: body.operation,
+              prompt: body.prompt.substring(0, 200),
+              duration,
+              success: true,
+              metadata: {
+                rateLimitRemaining: rateLimitResult.remaining,
+              },
+            });
+
+            return NextResponse.json(
+              {
+                text: rawOutput,
+                metadata: {
+                  operation: body.operation,
+                  duration: duration,
+                  rateLimitRemaining: rateLimitResult.remaining,
+                  rateLimitReset: rateLimitResult.resetAt,
+                },
+              },
+              {
+                headers: {
+                  "X-RateLimit-Limit": "10",
+                  "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+                  "X-RateLimit-Reset": rateLimitResult.resetAt.toString(),
+                },
+              }
+            );
+          }
+
+          // For blocks operation: Parse JSON
+          let parsedOutput: unknown;
+          try {
+            // Strip markdown code blocks if present (defensive parsing)
+            let jsonText = rawOutput.trim();
+            if (jsonText.startsWith("```json")) {
+              jsonText = jsonText.replace(/^```json\s*/i, "").replace(/```\s*$/, "");
+            } else if (jsonText.startsWith("```")) {
+              jsonText = jsonText.replace(/^```\s*/i, "").replace(/```\s*$/, "");
+            }
+            
+            parsedOutput = JSON.parse(jsonText);
+            parseError = null; // Success
+            break; // Exit retry loop
+          } catch (parseErr) {
+            parseError = parseErr instanceof Error ? parseErr : new Error("JSON parse failed");
+            parseAttempts++;
+            
+            if (parseAttempts > MAX_JSON_PARSE_RETRIES) {
+              // Max retries exceeded - log and throw
+              clearTimeout(timeoutId);
+              const duration = Date.now() - startTime;
+              
+              // Log parse failure
+              logAIOperation({
+                userId: user._id.toString(),
+                userEmail: user.email,
+                operation: body.operation,
+                prompt: body.prompt.substring(0, 200),
+                duration,
+                success: false,
+                error: `JSON parse failed after ${MAX_JSON_PARSE_RETRIES + 1} attempts: ${parseError.message}`,
+              });
+              
+              throw new Error(`Failed to parse JSON after ${MAX_JSON_PARSE_RETRIES + 1} attempts: ${parseError.message}`);
+            }
+            // Continue to retry
+            continue;
+          }
+        } catch (geminiError) {
+          clearTimeout(timeoutId);
+          throw geminiError;
+        }
+      }
 
       clearTimeout(timeoutId);
 
+      // 7. Validate schema (for blocks operation)
+      if (!isBlocksOperation) {
+        // Should not reach here for text operations, but defensive
+        throw new Error("Invalid operation flow");
+      }
+
+      // 8. Translate AI output to editor blocks
+      const translationResult = translateAIOutputToEditorBlocks(parsedOutput);
+
+      if (!translationResult.success) {
+        // Validation failed - return structured error
+        const duration = Date.now() - startTime;
+        
+        logAIOperation({
+          userId: user._id.toString(),
+          userEmail: user.email,
+          operation: body.operation,
+          prompt: body.prompt.substring(0, 200),
+          duration,
+          success: false,
+          error: `Schema validation failed: ${translationResult.errors?.map(e => e.message).join("; ") || "Unknown validation error"}`,
+        });
+
+        return NextResponse.json(
+          {
+            error: "Schema validation failed",
+            details: translationResult.errors?.map(e => ({
+              type: e.type,
+              message: e.message,
+              field: e.field,
+            })),
+          },
+          { status: 400 }
+        );
+      }
+
+      // 9. Return editor-ready blocks (no insertion - that's the client's job)
       const duration = Date.now() - startTime;
 
-      // 6. Log successful operation
       logAIOperation({
         userId: user._id.toString(),
         userEmail: user.email,
         operation: body.operation,
-        prompt: body.prompt.substring(0, 200), // Log first 200 chars
+        prompt: body.prompt.substring(0, 200),
         duration,
         success: true,
         metadata: {
           rateLimitRemaining: rateLimitResult.remaining,
+          blocksGenerated: translationResult.blocks?.length || 0,
+          warnings: translationResult.warnings?.length || 0,
         },
       });
 
       return NextResponse.json(
         {
-          text: result,
+          blocks: translationResult.blocks,
           metadata: {
             operation: body.operation,
             duration: duration,
             rateLimitRemaining: rateLimitResult.remaining,
             rateLimitReset: rateLimitResult.resetAt,
+            blocksGenerated: translationResult.blocks?.length || 0,
+            warnings: translationResult.warnings,
           },
         },
         {

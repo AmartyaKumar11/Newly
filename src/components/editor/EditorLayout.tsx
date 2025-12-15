@@ -10,6 +10,7 @@ import { EditorTopBar } from "./EditorTopBar";
 import { EditorSidebar } from "./EditorSidebar";
 import { EditorCanvasWrapper } from "./EditorCanvasWrapper";
 import { EditorPropertiesPanel } from "./EditorPropertiesPanel";
+import { AIPanel } from "./AIPanel";
 
 interface Newsletter {
   _id: string;
@@ -40,6 +41,7 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
   } = useEditorStore();
 
   const [newsletter, setNewsletter] = useState<Newsletter | null>(null);
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitializedRef = useRef(false);
   const isInitialLoadRef = useRef(true);
@@ -296,6 +298,7 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
         <EditorTopBar
           newsletterTitle={newsletter?.title}
           onTitleChange={handleTitleChange}
+          onAIClick={() => setIsAIPanelOpen(true)}
         />
 
         {/* Main content area */}
@@ -314,6 +317,12 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
         <div className="pointer-events-none fixed inset-0 z-50">
           {/* This layer will be used for floating UI elements like selection toolbars */}
         </div>
+
+        {/* AI Panel */}
+        <AIPanel
+          isOpen={isAIPanelOpen}
+          onClose={() => setIsAIPanelOpen(false)}
+        />
       </div>
     </EditorErrorBoundary>
   );
