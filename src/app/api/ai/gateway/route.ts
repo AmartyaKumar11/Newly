@@ -374,6 +374,29 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
+
+      // Handle overloaded/service unavailable errors
+      if (error.message.includes("overloaded") || error.message.includes("503") || error.message.includes("Service Unavailable")) {
+        return NextResponse.json(
+          { 
+            error: "Service temporarily unavailable",
+            details: "The AI service is currently overloaded. Please try again in a few moments.",
+            retryAfter: 30, // Suggest retrying after 30 seconds
+          },
+          { status: 503 }
+        );
+      }
+
+      // Handle rate limit errors
+      if (error.message.includes("rate limit") || error.message.includes("429")) {
+        return NextResponse.json(
+          { 
+            error: "Rate limit exceeded",
+            details: "You've made too many requests. Please wait a moment before trying again.",
+          },
+          { status: 429 }
+        );
+      }
     }
 
     return NextResponse.json(
