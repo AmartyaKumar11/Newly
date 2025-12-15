@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
 
     // 6. Execute AI operation with timeout and retry logic
     let rawOutput: string;
+    let parsedOutput: unknown; // Declare outside loop so it's accessible after
     let parseAttempts = 0;
     let parseError: Error | null = null;
 
@@ -205,7 +206,6 @@ export async function POST(req: NextRequest) {
           }
 
           // For blocks operation: Parse JSON
-          let parsedOutput: unknown;
           try {
             // Strip markdown code blocks if present (defensive parsing)
             let jsonText = rawOutput.trim();
@@ -255,6 +255,11 @@ export async function POST(req: NextRequest) {
       if (!isBlocksOperation) {
         // Should not reach here for text operations, but defensive
         throw new Error("Invalid operation flow");
+      }
+
+      // Ensure parsedOutput was successfully set
+      if (parsedOutput === undefined) {
+        throw new Error("Failed to parse AI output: parsedOutput is undefined");
       }
 
       // 8. Translate AI output to editor blocks

@@ -47,7 +47,9 @@ function getGeminiClient(): GoogleGenerativeAI {
 export async function callGemini(prompt: string): Promise<string> {
   try {
     const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    // Use gemini-2.5-flash (confirmed working model)
+    // Alternative models: gemini-2.5-pro, gemini-2.0-flash
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     
