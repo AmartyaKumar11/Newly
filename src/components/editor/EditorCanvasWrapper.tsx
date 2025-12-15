@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { DraggableBlock } from "./blocks/DraggableBlock";
 
@@ -19,9 +19,63 @@ export function EditorCanvasWrapper() {
     redo,
     canUndo,
     canRedo,
+    zoomLevel,
+    setZoomLevel,
   } = useEditorStateStore();
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
   const sortedBlocks = blocks.sort((a, b) => a.zIndex - b.zIndex);
+
+  // Calculate zoom to fit canvas in viewport (auto-fit on mount/resize)
+  const calculateFitZoom = useCallback(() => {
+    if (!containerRef.current) return 1;
+    
+    const container = containerRef.current;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    
+    // Add some padding (20px on each side)
+    const padding = 40;
+    const availableWidth = containerWidth - padding;
+    const availableHeight = containerHeight - padding;
+    
+    // Calculate scale to fit both width and height
+    const scaleX = availableWidth / CANVAS_WIDTH;
+    const scaleY = availableHeight / CANVAS_HEIGHT;
+    
+    // Use the smaller scale to ensure everything fits
+    return Math.min(scaleX, scaleY, 1); // Max zoom is 1x (100%)
+  }, []);
+
+  // Update container size on resize
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        setContainerSize({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  // Auto-fit on mount or when zoom is reset to 0.1 (fit button clicked)
+  useEffect(() => {
+    if (containerSize.width > 0 && containerSize.height > 0) {
+      // If zoom is 1 (initial) or 0.1 (fit button clicked), calculate fit
+      if (zoomLevel === 1 || zoomLevel === 0.1) {
+        const fitZoom = calculateFitZoom();
+        // Set the calculated fit zoom (or 1 if larger)
+        setZoomLevel(Math.min(fitZoom, 1));
+      }
+    }
+  }, [containerSize, calculateFitZoom, zoomLevel, setZoomLevel]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -78,8 +132,20 @@ export function EditorCanvasWrapper() {
   };
 
   return (
-    <div className="flex flex-1 items-center justify-center overflow-auto bg-zinc-50 dark:bg-zinc-950">
-      <div className="relative" style={{ width: `${CANVAS_WIDTH}px`, height: `${CANVAS_HEIGHT}px` }}>
+    <div
+      ref={containerRef}
+      className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-zinc-950"
+      style={{ overflow: "hidden" }} // Remove scrollbars
+    >
+      <div
+        className="flex items-center justify-center"
+        style={{
+          transform: `scale(${zoomLevel})`,
+          transformOrigin: "center center",
+          width: `${CANVAS_WIDTH}px`,
+          height: `${CANVAS_HEIGHT}px`,
+        }}
+      >
         {/* Canvas area */}
         <div
           onClick={handleCanvasClick}

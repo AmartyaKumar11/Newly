@@ -12,7 +12,7 @@ interface EditorTopBarProps {
 
 export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: EditorTopBarProps) {
   const { isDirty, isSaving, lastSaved } = useEditorStore();
-  const { canUndo, canRedo, undo, redo } = useEditorStateStore();
+  const { canUndo, canRedo, undo, redo, zoomLevel, setZoomLevel } = useEditorStateStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(newsletterTitle || "Untitled Newsletter");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +57,26 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: Edit
     return "Saved";
   };
 
+  // Zoom functions
+  const handleZoomIn = () => {
+    const newZoom = Math.min(zoomLevel + 0.1, 1); // Max 100%
+    setZoomLevel(newZoom);
+  };
+
+  const handleZoomOut = () => {
+    const newZoom = Math.max(zoomLevel - 0.1, 0.1); // Min 10%
+    setZoomLevel(newZoom);
+  };
+
+  const handleZoomFit = () => {
+    // Set to 0.1 to trigger auto-fit recalculation in canvas wrapper
+    setZoomLevel(0.1);
+  };
+
+  const formatZoom = (zoom: number) => {
+    return `${Math.round(zoom * 100)}%`;
+  };
+
   return (
     <div className="flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-center gap-4">
@@ -89,6 +109,37 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: Edit
         </span>
       </div>
       <div className="flex items-center gap-2">
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-1 rounded-lg border border-zinc-300 bg-white px-1 dark:border-zinc-700 dark:bg-zinc-800">
+          <button
+            onClick={handleZoomOut}
+            disabled={zoomLevel <= 0.1}
+            className="flex h-7 w-7 items-center justify-center rounded text-zinc-600 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-400 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:disabled:text-zinc-600"
+            title="Zoom Out"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            </svg>
+          </button>
+          <button
+            onClick={handleZoomFit}
+            className="px-2 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            title="Fit to Screen"
+          >
+            {formatZoom(zoomLevel)}
+          </button>
+          <button
+            onClick={handleZoomIn}
+            disabled={zoomLevel >= 1}
+            className="flex h-7 w-7 items-center justify-center rounded text-zinc-600 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-400 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:disabled:text-zinc-600"
+            title="Zoom In"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+
         {/* AI Generate Button */}
         {onAIClick && (
           <button
