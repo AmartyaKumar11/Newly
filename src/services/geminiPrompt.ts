@@ -52,8 +52,8 @@ REQUIRED SCHEMA (AIOutputSchema v1.0.0):
         "y": number
       },
       "size"?: {             // OPTIONAL: { "width": number (50-600), "height": number (50-800) }
-        "width": number,
-        "height": number
+        "width": number,     // REQUIRED TO BE >= 50 AND <= 600
+        "height": number     // REQUIRED TO BE >= 50 AND <= 800 (MINIMUM IS 50, NOT SMALLER)
       },
       "styles"?: {           // OPTIONAL: Style object (see allowed fields below)
         "backgroundColor"?: "string (hex color)",
@@ -100,12 +100,20 @@ CONTENT TYPE CONSTRAINTS:
    - All referenced tempIds MUST exist in the same response
    - No circular references
 
-VALIDATION CONSTRAINTS:
+VALIDATION CONSTRAINTS (STRICTLY ENFORCED):
 - Position: x must be 0-600, y must be 0-800
-- Size: width 50-600, height 50-800
+- Size: 
+  * width: MINIMUM 50, MAXIMUM 600 (values below 50 or above 600 will be REJECTED)
+  * height: MINIMUM 50, MAXIMUM 800 (values below 50 or above 800 will be REJECTED)
+  * NEVER use sizes smaller than 50px for width or height
 - If both position and size are provided, x + width must be ≤ 600, y + height must be ≤ 800
 - blocks array must have 1-50 items
 - All tempIds in container.children must reference valid tempIds in the same response
+
+CRITICAL SIZE REMINDERS:
+- Minimum block size is 50px x 50px - NEVER use sizes smaller than this
+- Use at least 50px for width and height to avoid validation rejection
+- If you need smaller visual elements, use 50px minimum and adjust styling instead
 
 IF YOUR OUTPUT IS INVALID JSON OR DOES NOT MATCH THE SCHEMA, IT WILL BE REJECTED.
 
@@ -137,6 +145,44 @@ Previous (invalid) output:
 ${previousOutput.substring(0, 500)}${previousOutput.length > 500 ? "..." : ""}
 
 Fix this and output ONLY valid JSON matching the AIOutputSchema.
+
+REMEMBER SIZE CONSTRAINTS:
+- width: MINIMUM 50px, MAXIMUM 600px
+- height: MINIMUM 50px, MAXIMUM 800px
+- NEVER use sizes smaller than 50px for width or height
+
+USER REQUEST:
+${userPrompt}
+
+OUTPUT ONLY THE JSON OBJECT, NOTHING ELSE.`;
+}
+
+/**
+ * Builds a validation error correction prompt when schema validation fails.
+ * Instructs Gemini to fix the validation issues.
+ * 
+ * @param userPrompt - Original user prompt
+ * @param validationErrors - Array of validation error messages
+ * @returns Correction prompt
+ */
+export function buildValidationErrorPrompt(
+  userPrompt: string,
+  validationErrors: string[]
+): string {
+  return `Your previous response failed schema validation. The errors were:
+${validationErrors.join("\n")}
+
+CRITICAL: You MUST fix these validation errors and output ONLY valid JSON.
+
+KEY CONSTRAINTS TO REMEMBER:
+- Size: width MINIMUM 50px, height MINIMUM 50px (NEVER use values below 50)
+- Position: x must be 0-600, y must be 0-800
+- If both position and size are provided: x + width ≤ 600, y + height ≤ 800
+- blocks array must have 1-50 items
+- Text content: no HTML, no Markdown, plain text only
+- Image src: HTTPS URLs only, no data URIs or javascript: protocols
+
+Fix these errors and output ONLY valid JSON matching the AIOutputSchema.
 
 USER REQUEST:
 ${userPrompt}
