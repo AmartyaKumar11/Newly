@@ -28,9 +28,10 @@ interface SectionAIPanelProps {
   textBlock: TextBlock | null;
   action: string;
   onClose: () => void;
+  brandVoiceId?: string | null; // Optional brand voice ID from newsletter
 }
 
-export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onClose }: SectionAIPanelProps) {
+export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onClose, brandVoiceId }: SectionAIPanelProps) {
   const { blocks } = useEditorStateStore();
   
   // Get all blocks in this section (container + children, or just the text block)
@@ -50,6 +51,26 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [brandVoice, setBrandVoice] = useState<any>(null);
+  
+  // Fetch brand voice if brandVoiceId is provided
+  useEffect(() => {
+    if (brandVoiceId && isOpen) {
+      fetch(`/api/brand-voices/${brandVoiceId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.brandVoice) {
+            setBrandVoice(data.brandVoice);
+          }
+        })
+        .catch(() => {
+          // Silently fail - brand voice is optional
+          setBrandVoice(null);
+        });
+    } else {
+      setBrandVoice(null);
+    }
+  }, [brandVoiceId, isOpen]);
 
   // Handle AI generation
   const handleGenerate = useCallback(async () => {
@@ -69,8 +90,8 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
         throw new Error(validation.error || "Section validation failed");
       }
       
-      // Build section-specific prompt
-      const prompt = buildSectionAIPrompt(action as SectionAIAction, sectionContent);
+      // Build section-specific prompt with brand voice (if available)
+      const prompt = buildSectionAIPrompt(action as SectionAIAction, sectionContent, undefined, brandVoice);
 
       // P0-3: Include telemetry metadata for section AI actions
       const sectionId = containerBlock ? getSectionId(containerBlock) : null;
@@ -90,6 +111,7 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
             sectionId: sectionId || undefined,
             sectionSize,
             sectionType: validation.sectionType,
+            brandVoiceId: brandVoiceId || undefined, // P0-7: Brand voice telemetry
           },
         }),
       });

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useEditorStateStore } from "@/stores/editorStateStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { isTextBlock, isImageBlock, isShapeBlock, isContainerBlock } from "@/types/blocks";
 import { TextProperties } from "./properties/TextProperties";
 import { ImageProperties } from "./properties/ImageProperties";
@@ -10,7 +11,29 @@ import { LayoutProperties } from "./properties/LayoutProperties";
 import { SectionAIActions } from "./properties/SectionAIActions";
 import { SectionAIPanel } from "./SectionAIPanel";
 
+interface Newsletter {
+  brandVoiceId?: string | null;
+}
+
 export function EditorPropertiesPanel() {
+  const { newsletterId } = useEditorStore();
+  const [newsletter, setNewsletter] = useState<Newsletter | null>(null);
+  
+  // Fetch newsletter to get brand voice ID
+  useEffect(() => {
+    if (newsletterId) {
+      fetch(`/api/newsletters/${newsletterId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.newsletter) {
+            setNewsletter(data.newsletter);
+          }
+        })
+        .catch(() => {
+          // Silently fail - brand voice is optional
+        });
+    }
+  }, [newsletterId]);
   const { getSelectedBlock } = useEditorStateStore();
   const selectedBlock = getSelectedBlock();
   const [sectionAIPanelState, setSectionAIPanelState] = useState<{
@@ -77,6 +100,7 @@ export function EditorPropertiesPanel() {
           textBlock={isTextBlock(selectedBlock) ? selectedBlock : null}
           action={sectionAIPanelState.action}
           onClose={() => setSectionAIPanelState(null)}
+          brandVoiceId={newsletter?.brandVoiceId || null}
         />
       )}
     </div>

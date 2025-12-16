@@ -18,13 +18,36 @@ export function serializeBlocks(blocks: Block[]): unknown[] {
 // Convert database format to Block
 export function deserializeBlocks(data: unknown[]): Block[] {
   return data.map((item: any) => {
+    // Helper to validate size object (handle empty objects, null, undefined)
+    const getSize = (size: any): { width: number; height: number } => {
+      if (!size || typeof size !== "object" || Object.keys(size).length === 0) {
+        return { width: 200, height: 100 };
+      }
+      // Validate width and height exist and are numbers
+      if (typeof size.width === "number" && typeof size.height === "number") {
+        return { width: size.width, height: size.height };
+      }
+      // Partial or invalid size - use defaults
+      return { width: 200, height: 100 };
+    };
+
+    // Helper to validate zIndex
+    const getZIndex = (zIndex: any): number => {
+      if (typeof zIndex === "number" && zIndex >= 1) {
+        return zIndex;
+      }
+      return 1;
+    };
+
     const base = {
       id: item.id,
       type: item.type,
-      position: item.position || { x: 0, y: 0 },
-      size: item.size || { width: 200, height: 100 },
-      styles: item.styles || {},
-      zIndex: item.zIndex || 1,
+      position: item.position && typeof item.position === "object" && typeof item.position.x === "number" && typeof item.position.y === "number"
+        ? item.position
+        : { x: 0, y: 0 },
+      size: getSize(item.size),
+      styles: item.styles && typeof item.styles === "object" ? item.styles : {},
+      zIndex: getZIndex(item.zIndex),
     };
 
     switch (item.type) {

@@ -303,6 +303,7 @@ export async function POST(req: NextRequest) {
       const duration = Date.now() - startTime;
 
       // P0-3: Semantic AI Action Telemetry for section actions
+      // P0-7: Brand Voice Telemetry (Phase 3.3.3 Part B)
       const telemetryMetadata: Record<string, unknown> = {
         rateLimitRemaining: rateLimitResult.remaining,
         blocksGenerated: translationResult.blocks?.length || 0,
@@ -316,6 +317,13 @@ export async function POST(req: NextRequest) {
         telemetryMetadata.sectionId = body.metadata.sectionId;
         telemetryMetadata.sectionSize = body.metadata.sectionSize;
         telemetryMetadata.sectionType = body.metadata.sectionType;
+        // Brand voice telemetry
+        if (body.metadata.brandVoiceId) {
+          telemetryMetadata.brandVoiceId = body.metadata.brandVoiceId;
+          telemetryMetadata.brandVoiceApplied = true;
+        } else {
+          telemetryMetadata.brandVoiceApplied = false;
+        }
       }
 
       logAIOperation({

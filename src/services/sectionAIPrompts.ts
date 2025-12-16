@@ -7,6 +7,8 @@
 
 import type { AIOutputSchema } from "@/types/aiOutputSchema";
 import { buildGeminiPrompt } from "./geminiPrompt";
+import { injectBrandVoiceIntoPrompt } from "./brandVoicePrompt";
+import type { BrandVoiceDocument } from "./brandVoicePrompt";
 
 export type SectionAIAction = 
   | "rewrite"
@@ -22,12 +24,14 @@ export type SectionAIAction =
  * @param action - The specific action to perform
  * @param sectionContent - The current content of the section (read-only context)
  * @param tone - Optional tone for change_tone action
+ * @param brandVoice - Optional brand voice to inject (advisory guidance)
  * @returns Complete prompt string for Gemini
  */
 export function buildSectionAIPrompt(
   action: SectionAIAction,
   sectionContent: string,
-  tone?: string
+  tone?: string,
+  brandVoice?: BrandVoiceDocument | null
 ): string {
   // Build the full schema prompt template
   const basePrompt = buildGeminiPrompt("PLACEHOLDER");
@@ -64,9 +68,7 @@ export function buildSectionAIPrompt(
       break;
   }
   
-  return `${schemaDescription}
-
-SECTION TO MODIFY (read-only context):
+  const userRequest = `SECTION TO MODIFY (read-only context):
 ${sectionContent}
 
 ACTION TO PERFORM:
@@ -82,5 +84,10 @@ CRITICAL CONSTRAINTS:
 
 USER REQUEST:
 Apply the ${action} action to the section above. Output ONLY the JSON object matching the AIOutputSchema, nothing else.`;
+
+  // Build base prompt with schema
+  const basePrompt = `${schemaDescription}\n\n${userRequest}`;
+
+  // Inject brand voice guidance if provided (advisory only)
+  return injectBrandVoiceIntoPrompt(basePrompt, brandVoice);
 }
-  

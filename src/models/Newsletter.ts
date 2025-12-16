@@ -68,6 +68,15 @@ const NewsletterSchema = new Schema(
       topic: { type: String, default: "" }
     },
 
+    // Brand Voice - Phase 3.3.3 Part B
+    // Reference to active brand voice (optional, can be null for no brand voice)
+    brandVoiceId: {
+      type: Schema.Types.ObjectId,
+      ref: "BrandVoice",
+      default: null,
+      index: true,
+    },
+
     versions: {
       type: [VersionSchema],
       default: []
