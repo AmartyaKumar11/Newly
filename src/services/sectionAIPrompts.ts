@@ -33,11 +33,11 @@ export function buildSectionAIPrompt(
   tone?: string,
   brandVoice?: BrandVoiceDocument | null
 ): string {
-  // Build the full schema prompt template
-  const basePrompt = buildGeminiPrompt("PLACEHOLDER");
+  // Build the full schema prompt template to extract schema description
+  const schemaTemplate = buildGeminiPrompt("PLACEHOLDER");
   
   // Extract just the schema description part (everything before USER REQUEST)
-  const schemaDescription = basePrompt.split("USER REQUEST:")[0].trim();
+  const schemaDescription = schemaTemplate.split("USER REQUEST:")[0].trim();
   
   let actionInstructions = "";
   
