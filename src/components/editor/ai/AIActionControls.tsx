@@ -14,6 +14,7 @@ interface AIActionControlsProps {
   onCancel: () => void;
   canReplace: boolean;
   disabled?: boolean;
+  showSectionActions?: boolean; // If true, only show Replace and Cancel (for section-level actions)
 }
 
 export function AIActionControls({
@@ -23,6 +24,7 @@ export function AIActionControls({
   onCancel,
   canReplace,
   disabled = false,
+  showSectionActions = false,
 }: AIActionControlsProps) {
   return (
     <div className="flex items-center justify-between">
@@ -32,45 +34,66 @@ export function AIActionControls({
       </div>
       
       <div className="flex items-center gap-2">
-        {/* Insert Button */}
-        <button
-          onClick={onInsert}
-          disabled={disabled}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:bg-blue-500 dark:hover:bg-blue-600 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
-          title="Insert at default position"
-        >
-          Insert
-        </button>
+        {showSectionActions ? (
+          <>
+            {/* Section Actions: Only Replace and Cancel */}
+            <button
+              onClick={onReplace}
+              disabled={disabled}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:bg-blue-500 dark:hover:bg-blue-600 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
+              title="Replace section with AI-generated content"
+            >
+              Replace Section
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={disabled}
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
+              title="Cancel - discard preview"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Full Actions: Insert, Append, Replace, Cancel */}
+            <button
+              onClick={onInsert}
+              disabled={disabled}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:bg-blue-500 dark:hover:bg-blue-600 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
+              title="Insert at default position"
+            >
+              Insert
+            </button>
 
-        {/* Append Button */}
-        <button
-          onClick={onAppend}
-          disabled={disabled}
-          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
-          title="Append at end of canvas"
-        >
-          Append
-        </button>
+            <button
+              onClick={onAppend}
+              disabled={disabled}
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
+              title="Append at end of canvas"
+            >
+              Append
+            </button>
 
-        {/* Replace Button */}
-        <button
-          onClick={onReplace}
-          disabled={disabled || !canReplace}
-          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
-          title={canReplace ? "Replace selected block" : "Select a block to replace"}
-        >
-          Replace
-        </button>
+            <button
+              onClick={onReplace}
+              disabled={disabled || !canReplace}
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
+              title={canReplace ? "Replace selected block" : "Select a block to replace"}
+            >
+              Replace
+            </button>
 
-        {/* Cancel Button */}
-        <button
-          onClick={onCancel}
-          disabled={disabled}
-          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
-          title="Cancel - discard preview"
-        >
-          Cancel
-        </button>
+            <button
+              onClick={onCancel}
+              disabled={disabled}
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
+              title="Cancel - discard preview"
+            >
+              Cancel
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

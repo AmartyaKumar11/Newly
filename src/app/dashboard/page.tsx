@@ -12,6 +12,7 @@ interface NewsletterData {
   title?: string;
   status?: string;
   updatedAt?: Date | string;
+  createdAt?: Date | string;
 }
 
 async function getNewsletters(email: string): Promise<NewsletterData[]> {

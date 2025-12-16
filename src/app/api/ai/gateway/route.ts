@@ -36,7 +36,7 @@ interface AIRequest {
 }
 
 const MAX_TOKENS_PER_REQUEST = 10000;
-const MAX_REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+const MAX_REQUEST_TIMEOUT_MS = 60000; // 60 seconds (increased for retry logic and API response times)
 const MAX_JSON_PARSE_RETRIES = 1; // Retry once on parse failure
 
 export async function POST(req: NextRequest) {
