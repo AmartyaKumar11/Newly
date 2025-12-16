@@ -11,6 +11,7 @@ export function serializeBlocks(blocks: Block[]): unknown[] {
     size: block.size,
     zIndex: block.zIndex,
     children: isContainerBlock(block) ? block.children : [],
+    sectionMetadata: isContainerBlock(block) ? block.sectionMetadata : undefined,
   }));
 }
 
@@ -51,6 +52,7 @@ export function deserializeBlocks(data: unknown[]): Block[] {
           ...base,
           type: "container" as const,
           children: item.children || [],
+          sectionMetadata: item.sectionMetadata || undefined,
         };
       default:
         // Fallback to text block for unknown types

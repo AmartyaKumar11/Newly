@@ -36,6 +36,11 @@ export function SectionAIActions({ containerBlock, textBlock, onActionClick }: S
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
         AI Actions
       </h3>
+      {/* P0-4: Explicit User Trust Messaging */}
+      <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50/50 p-2 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-300">
+        <p>✓ Only this {containerBlock ? "section" : "text block"} will be modified</p>
+        <p>✓ Changes can be undone in one step</p>
+      </div>
       <p className="mb-3 text-xs text-zinc-600 dark:text-zinc-400">
         Apply AI to this {containerBlock ? "section" : "text block"} ({elementCount} {elementCount === 1 ? "element" : "elements"})
       </p>

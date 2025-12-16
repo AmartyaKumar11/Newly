@@ -7,7 +7,12 @@ const BlockSchema = new Schema(
     content: { type: Schema.Types.Mixed, default: {} },
     styles: { type: Schema.Types.Mixed, default: {} },
     position: { type: Schema.Types.Mixed, default: {} },
-    children: { type: [Schema.Types.Mixed], default: [] }
+    // Geometry & layering (optional for backward compatibility)
+    size: { type: Schema.Types.Mixed, default: {} },
+    zIndex: { type: Number, default: 1 },
+    // Section-level metadata for containers (optional)
+    children: { type: [Schema.Types.Mixed], default: [] },
+    sectionMetadata: { type: Schema.Types.Mixed, default: null },
   },
   { _id: false }
 );

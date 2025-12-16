@@ -33,10 +33,17 @@ interface AIRequest {
   prompt: string;
   maxTokens?: number;
   operation: "generate_text" | "generate_blocks";
+  metadata?: {
+    actionType?: string;
+    sectionId?: string;
+    sectionSize?: number;
+    sectionType?: "container" | "text_block";
+  };
 }
 
 const MAX_TOKENS_PER_REQUEST = 10000;
-const MAX_REQUEST_TIMEOUT_MS = 60000; // 60 seconds (increased for retry logic and API response times)
+// Increased to 120 seconds to better support long, schema-heavy section prompts
+const MAX_REQUEST_TIMEOUT_MS = 120000;
 const MAX_JSON_PARSE_RETRIES = 1; // Retry once on parse failure
 
 export async function POST(req: NextRequest) {
@@ -295,18 +302,30 @@ export async function POST(req: NextRequest) {
       // 9. Return editor-ready blocks (no insertion - that's the client's job)
       const duration = Date.now() - startTime;
 
+      // P0-3: Semantic AI Action Telemetry for section actions
+      const telemetryMetadata: Record<string, unknown> = {
+        rateLimitRemaining: rateLimitResult.remaining,
+        blocksGenerated: translationResult.blocks?.length || 0,
+        warnings: translationResult.warnings?.length || 0,
+        model: "gemini-2.5-flash", // Primary model (fallback models tracked in error cases)
+      };
+      
+      // Add section-specific telemetry if provided
+      if (body.metadata) {
+        telemetryMetadata.actionType = body.metadata.actionType;
+        telemetryMetadata.sectionId = body.metadata.sectionId;
+        telemetryMetadata.sectionSize = body.metadata.sectionSize;
+        telemetryMetadata.sectionType = body.metadata.sectionType;
+      }
+
       logAIOperation({
         userId: user._id.toString(),
         userEmail: user.email,
         operation: body.operation,
-        prompt: body.prompt.substring(0, 200),
+        prompt: body.prompt.substring(0, 200), // Truncate to avoid content leakage
         duration,
         success: true,
-        metadata: {
-          rateLimitRemaining: rateLimitResult.remaining,
-          blocksGenerated: translationResult.blocks?.length || 0,
-          warnings: translationResult.warnings?.length || 0,
-        },
+        metadata: telemetryMetadata,
       });
 
       return NextResponse.json(

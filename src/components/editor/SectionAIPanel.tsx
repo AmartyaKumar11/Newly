@@ -18,6 +18,9 @@ import { getSectionBlocks, extractSectionContentForPrompt } from "@/utils/sectio
 import { buildSectionAIPrompt, type SectionAIAction } from "@/services/sectionAIPrompts";
 import { AIPreviewRenderer } from "./ai/AIPreviewRenderer";
 import { AIActionControls } from "./ai/AIActionControls";
+import { validateSectionForAIAction } from "@/utils/sectionValidation";
+import { preserveSectionMetadata, updateSectionMetadataWithAIAction, getSectionId } from "@/utils/sectionIdentity";
+import { isContainerBlock } from "@/types/blocks";
 
 interface SectionAIPanelProps {
   isOpen: boolean;
@@ -55,9 +58,24 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
     setPreviewBlocks(null);
 
     try {
+      // P0-2: Validate section boundaries before AI action
+      const validation = validateSectionForAIAction(
+        containerBlock,
+        textBlock?.id || null,
+        blocks
+      );
+      
+      if (!validation.valid) {
+        throw new Error(validation.error || "Section validation failed");
+      }
+      
       // Build section-specific prompt
       const prompt = buildSectionAIPrompt(action as SectionAIAction, sectionContent);
 
+      // P0-3: Include telemetry metadata for section AI actions
+      const sectionId = containerBlock ? getSectionId(containerBlock) : null;
+      const sectionSize = validation.blockCount;
+      
       const response = await fetch("/api/ai/gateway", {
         method: "POST",
         headers: {
@@ -66,6 +84,13 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
         body: JSON.stringify({
           prompt,
           operation: "generate_blocks",
+          // Telemetry metadata (will be extracted server-side)
+          metadata: {
+            actionType: action,
+            sectionId: sectionId || undefined,
+            sectionSize,
+            sectionType: validation.sectionType,
+          },
         }),
       });
 
@@ -99,10 +124,25 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
       setError(errorMessage);
       setPreviewBlocks(null);
+      
+      // P0-3: Log failure telemetry (non-blocking)
+      const sectionId = containerBlock ? getSectionId(containerBlock) : null;
+      fetch("/api/ai/section-action-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actionType: action,
+          sectionId: sectionId || undefined,
+          result: "failed" as const,
+          error: errorMessage,
+        }),
+      }).catch(() => {
+        // Silently fail - telemetry should not block user actions
+      });
     } finally {
       setIsGenerating(false);
     }
-  }, [action, sectionContent]);
+  }, [action, sectionContent, containerBlock]);
 
   // Auto-generate on open
   useEffect(() => {
@@ -114,10 +154,24 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
 
   // Handle cancel - clear preview state, no side effects
   const handleCancel = useCallback(() => {
+    // P0-3: Log cancellation telemetry (non-blocking)
+    const sectionId = containerBlock ? getSectionId(containerBlock) : null;
+    fetch("/api/ai/section-action-result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        actionType: action,
+        sectionId: sectionId || undefined,
+        result: "cancelled" as const,
+      }),
+    }).catch(() => {
+      // Silently fail - telemetry should not block user actions
+    });
+    
     setPreviewBlocks(null);
     setError(null);
     onClose();
-  }, [onClose]);
+  }, [onClose, containerBlock, action]);
 
   // Handle replace action (replace section blocks only)
   const handleReplace = useCallback(() => {
@@ -146,13 +200,48 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
         store.deleteBlock(id);
       });
       
+      // P0-1: Preserve section identity when replacing
+      // If we're replacing a container, preserve its metadata on the new container
+      let blocksToAdd = previewBlocks;
+      if (containerBlock && previewBlocks.length > 0) {
+        // Find the new container block in preview blocks
+        const newContainerIndex = previewBlocks.findIndex(b => isContainerBlock(b));
+        if (newContainerIndex !== -1) {
+          const newContainer = previewBlocks[newContainerIndex] as ContainerBlock;
+          // Preserve section metadata from existing container
+          const preservedContainer = preserveSectionMetadata(containerBlock, newContainer);
+          // Update with AI action info
+          const updatedContainer = updateSectionMetadataWithAIAction(
+            preservedContainer,
+            action as any
+          );
+          // Replace in blocks array
+          blocksToAdd = [...previewBlocks];
+          blocksToAdd[newContainerIndex] = updatedContainer;
+        }
+      }
+      
       // Insert preview blocks (they're already translated editor blocks)
-      previewBlocks.forEach(block => {
+      blocksToAdd.forEach(block => {
         store.addBlock(block);
       });
       
       // End action group (pushes to history as one operation)
       store.endActionGroup();
+      
+      // P0-3: Log action result telemetry (non-blocking)
+      const sectionId = containerBlock ? getSectionId(containerBlock) : null;
+      fetch("/api/ai/section-action-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actionType: action,
+          sectionId: sectionId || undefined,
+          result: "applied" as const,
+        }),
+      }).catch(() => {
+        // Silently fail - telemetry should not block user actions
+      });
       
       // Clear preview and close
       setPreviewBlocks(null);
@@ -244,9 +333,16 @@ export function SectionAIPanel({ isOpen, containerBlock, textBlock, action, onCl
               
               {/* Action Controls */}
               <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
+                {/* P0-4: Explicit User Trust Messaging */}
+                <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50/50 p-3 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-300">
+                  <p className="font-semibold">✓ Safety Guarantees</p>
+                  <p className="mt-1">Only the selected {containerBlock ? "section" : "text block"} will be modified</p>
+                  <p className="mt-0.5">This action can be undone in one step</p>
+                </div>
+                
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                    <p className="font-medium">Replace section?</p>
+                    <p className="font-medium">Replace {containerBlock ? "section" : "text block"}?</p>
                     <p className="text-xs">All changes can be undone with a single undo step</p>
                   </div>
                   

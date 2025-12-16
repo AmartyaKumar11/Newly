@@ -54,9 +54,47 @@ export interface ShapeBlock extends BaseBlock {
   shapeType: "rectangle";
 }
 
+/**
+ * Section metadata for container blocks
+ * Used for identity preservation, collaboration, and analytics
+ */
+export interface SectionMetadata {
+  /**
+   * Stable section identifier that persists across AI replacements
+   * Generated once when container is created, never changes
+   */
+  sectionId: string;
+  
+  /**
+   * Semantic type of section (for organization and filtering)
+   */
+  sectionType?: "header" | "intro" | "body" | "footer" | "sidebar" | "other";
+  
+  /**
+   * How this section was created
+   */
+  createdBy: "manual" | "ai";
+  
+  /**
+   * Last AI action performed on this section
+   */
+  lastAIAction?: "rewrite" | "shorten" | "expand" | "change_tone" | "improve_clarity" | "make_persuasive";
+  
+  /**
+   * Timestamp of last modification (ISO string)
+   */
+  lastModifiedAt?: string;
+}
+
 export interface ContainerBlock extends BaseBlock {
   type: "container";
   children: string[]; // Array of child block IDs
+  
+  /**
+   * Section metadata for identity preservation and tracking
+   * Present for container blocks that represent logical sections
+   */
+  sectionMetadata?: SectionMetadata;
 }
 
 export type Block = TextBlock | ImageBlock | ShapeBlock | ContainerBlock;
