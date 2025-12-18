@@ -181,3 +181,5 @@ BrandVoiceSchema.index({ userId: 1, deleted: 1 });
 BrandVoiceSchema.index({ userId: 1, isDefault: 1 });
 
 export default models.BrandVoice || model("BrandVoice", BrandVoiceSchema);
+
+
