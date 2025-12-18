@@ -4,6 +4,7 @@ import { useRef, useEffect } from "react";
 import type { Block } from "@/types/blocks";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { BlockRenderer } from "./BlockRenderer";
+import { isTextBlock } from "@/types/blocks";
 
 // Canvas bounds
 const CANVAS_WIDTH = 600;
@@ -24,6 +25,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
     moveBlock,
     resizeBlock,
     getBlock,
+    updateBlockStyles,
   } = useEditorStateStore();
 
   const isSelected = block.id === selectedBlockId;
@@ -31,7 +33,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
   const blockRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const resizeStartRef = useRef<{ width: number; height: number; x: number; y: number } | null>(null);
-  const resizeHandleRef = useRef<"se" | "sw" | "ne" | "nw" | null>(null);
+  const resizeHandleRef = useRef<"se" | "sw" | "ne" | "nw" | "e" | "w" | "n" | "s" | null>(null);
 
   // Handle drag start
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -52,7 +54,10 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
   };
 
   // Handle resize start
-  const handleResizeMouseDown = (e: React.MouseEvent, handle: "se" | "sw" | "ne" | "nw") => {
+  const handleResizeMouseDown = (
+    e: React.MouseEvent,
+    handle: "se" | "sw" | "ne" | "nw" | "e" | "w" | "n" | "s"
+  ) => {
     e.stopPropagation();
     selectBlock(block.id);
 
@@ -92,9 +97,6 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
         const currentBlock = getBlock(block.id);
         if (!currentBlock) return;
 
-        const canvasRect = blockRef.current?.parentElement?.getBoundingClientRect();
-        if (!canvasRect) return;
-
         const deltaX = e.clientX - resizeStartRef.current.x;
         const deltaY = e.clientY - resizeStartRef.current.y;
 
@@ -125,11 +127,45 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
             newX = currentBlock.position.x + (currentBlock.size.width - newWidth);
             newY = currentBlock.position.y + (currentBlock.size.height - newHeight);
             break;
+          case "e": // East (right side) - horizontal resize only
+            newWidth = Math.max(
+              50,
+              Math.min(resizeStartRef.current.width + deltaX, CANVAS_WIDTH - currentBlock.position.x)
+            );
+            break;
+          case "w": // West (left side) - horizontal resize only
+            newWidth = Math.max(
+              50,
+              Math.min(resizeStartRef.current.width - deltaX, currentBlock.position.x + currentBlock.size.width)
+            );
+            newX = currentBlock.position.x + (currentBlock.size.width - newWidth);
+            break;
+          case "s": // South (bottom side) - vertical resize only
+            newHeight = Math.max(
+              50,
+              Math.min(resizeStartRef.current.height + deltaY, CANVAS_HEIGHT - currentBlock.position.y)
+            );
+            break;
+          case "n": // North (top side) - vertical resize only
+            newHeight = Math.max(
+              50,
+              Math.min(resizeStartRef.current.height - deltaY, currentBlock.position.y + currentBlock.size.height)
+            );
+            newY = currentBlock.position.y + (currentBlock.size.height - newHeight);
+            break;
         }
 
         // Constrain position
         newX = Math.max(0, Math.min(newX, CANVAS_WIDTH - newWidth));
         newY = Math.max(0, Math.min(newY, CANVAS_HEIGHT - newHeight));
+
+        // For text blocks, scale font size proportionally with horizontal resize
+        if (isTextBlock(currentBlock) && resizeStartRef.current.width > 0) {
+          const originalFontSize = currentBlock.styles.fontSize || 16;
+          const scaleFactor = newWidth / resizeStartRef.current.width;
+          const scaledFontSize = Math.max(8, Math.min(72, originalFontSize * scaleFactor));
+          updateBlockStyles(block.id, { fontSize: scaledFontSize });
+        }
 
         resizeBlock(block.id, { width: newWidth, height: newHeight });
         if (newX !== currentBlock.position.x || newY !== currentBlock.position.y) {
@@ -185,6 +221,78 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
       {/* Resize handles - only show when selected */}
       {isSelected && (
         <>
+          {/* East (right side) */}
+          <div
+            onMouseDown={(e) => handleResizeMouseDown(e, "e")}
+            style={{
+              position: "absolute",
+              right: "-4px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: "8px",
+              height: "20px",
+              backgroundColor: "#3b82f6",
+              border: "2px solid white",
+              borderRadius: "2px",
+              cursor: "e-resize",
+              zIndex: 1000,
+              pointerEvents: "auto",
+            }}
+          />
+          {/* West (left side) */}
+          <div
+            onMouseDown={(e) => handleResizeMouseDown(e, "w")}
+            style={{
+              position: "absolute",
+              left: "-4px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: "8px",
+              height: "20px",
+              backgroundColor: "#3b82f6",
+              border: "2px solid white",
+              borderRadius: "2px",
+              cursor: "w-resize",
+              zIndex: 1000,
+              pointerEvents: "auto",
+            }}
+          />
+          {/* South (bottom side) */}
+          <div
+            onMouseDown={(e) => handleResizeMouseDown(e, "s")}
+            style={{
+              position: "absolute",
+              bottom: "-4px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "20px",
+              height: "8px",
+              backgroundColor: "#3b82f6",
+              border: "2px solid white",
+              borderRadius: "2px",
+              cursor: "s-resize",
+              zIndex: 1000,
+              pointerEvents: "auto",
+            }}
+          />
+          {/* North (top side) */}
+          <div
+            onMouseDown={(e) => handleResizeMouseDown(e, "n")}
+            style={{
+              position: "absolute",
+              top: "-4px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "20px",
+              height: "8px",
+              backgroundColor: "#3b82f6",
+              border: "2px solid white",
+              borderRadius: "2px",
+              cursor: "n-resize",
+              zIndex: 1000,
+              pointerEvents: "auto",
+            }}
+          />
           {/* Southeast (bottom-right) */}
           <div
             onMouseDown={(e) => handleResizeMouseDown(e, "se")}

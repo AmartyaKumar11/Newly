@@ -25,6 +25,8 @@ export function TextBlockComponent({
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content || "Text");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const contentRef = useRef<HTMLDivElement | HTMLTextAreaElement | null>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
 
   useEffect(() => {
     setEditedContent(content || "Text");
@@ -36,6 +38,19 @@ export function TextBlockComponent({
       textareaRef.current.select();
     }
   }, [isEditing]);
+
+  // Detect vertical overflow (purely visual, not persisted)
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      const overflow = el.scrollHeight > el.clientHeight + 1; // small tolerance
+      setIsOverflowing(overflow);
+    };
+
+    checkOverflow();
+  }, [editedContent, size.height, styles.fontSize, styles.lineHeight, isEditing]);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -75,6 +90,8 @@ export function TextBlockComponent({
       style={{
         width: "100%",
         height: "100%",
+        position: "relative",
+        overflow: "hidden", // Respect fixed bounding box, hide overflow
         fontSize: `${styles.fontSize || 16}px`,
         fontWeight: styles.fontWeight || "normal",
         fontFamily: styles.fontFamily || "inherit",
@@ -93,6 +110,7 @@ export function TextBlockComponent({
       {isEditing ? (
         <textarea
           ref={textareaRef}
+          ref={contentRef as any}
           value={editedContent}
           onChange={(e) => setEditedContent(e.target.value)}
           onBlur={handleBlur}
@@ -101,6 +119,7 @@ export function TextBlockComponent({
             width: "100%",
             height: "100%",
             minHeight: `${size.height}px`,
+            overflow: "hidden", // No scrollbars, keep fixed box
             fontSize: `${styles.fontSize || 16}px`,
             fontWeight: styles.fontWeight || "normal",
             fontFamily: styles.fontFamily || "inherit",
@@ -115,9 +134,51 @@ export function TextBlockComponent({
           }}
         />
       ) : (
-        <div style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
+        <div
+          ref={contentRef}
+          style={{
+            whiteSpace: "pre-wrap",
+            wordWrap: "break-word",
+          }}
+        >
           {editedContent || "Text"}
         </div>
+      )}
+
+      {/* Overflow indicators (visual only, no state mutation) */}
+      {isOverflowing && (
+        <>
+          {/* Gradient fade at bottom (Canva-style) */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 24,
+              pointerEvents: "none",
+              background:
+                "linear-gradient(to bottom, rgba(24,24,27,0) 0%, rgba(24,24,27,0.6) 100%)",
+            }}
+          />
+          {/* Small overflow badge in bottom-right */}
+          <div
+            style={{
+              position: "absolute",
+              right: 4,
+              bottom: 4,
+              padding: "0 6px",
+              borderRadius: 9999,
+              fontSize: 10,
+              lineHeight: "16px",
+              backgroundColor: "rgba(24,24,27,0.9)",
+              color: "#f9fafb",
+              pointerEvents: "none",
+            }}
+          >
+            ⋯ text clipped
+          </div>
+        </>
       )}
     </div>
   );
