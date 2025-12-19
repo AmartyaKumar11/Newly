@@ -6,6 +6,7 @@ import { connectToDatabase } from "@/lib/db";
 import Newsletter from "@/models/Newsletter";
 import User from "@/models/User";
 import { CreateNewsletterButton } from "./CreateNewsletterButton";
+import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 
 interface NewsletterData {
   _id: { toString(): string };
@@ -59,7 +60,10 @@ export default async function DashboardPage() {
             Create a new newsletter or continue where you left off.
           </p>
         </div>
-        <CreateNewsletterButton />
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <CreateNewsletterButton />
+        </div>
       </div>
 
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">

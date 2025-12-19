@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useEditorStateStore } from "@/stores/editorStateStore";
+import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 
 interface EditorTopBarProps {
   newsletterTitle?: string;
@@ -109,6 +110,9 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: Edit
         </span>
       </div>
       <div className="flex items-center gap-2">
+        {/* Theme Toggle */}
+        <ThemeToggle />
+        
         {/* Zoom Controls */}
         <div className="flex items-center gap-1 rounded-lg border border-zinc-300 bg-white px-1 dark:border-zinc-700 dark:bg-zinc-800">
           <button
