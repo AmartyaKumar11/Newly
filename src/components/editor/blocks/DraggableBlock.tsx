@@ -203,6 +203,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
   return (
     <div
       ref={blockRef}
+      data-block-id={block.id}
       style={{
         position: "absolute",
         left: `${block.position.x}px`,

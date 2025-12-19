@@ -44,8 +44,10 @@ export interface BlockStyles {
   fontSize?: number;
   fontWeight?: string | number;
   fontFamily?: string;
+  fontStyle?: "normal" | "italic";
   color?: string;
   textAlign?: "left" | "center" | "right" | "justify";
+  textDecoration?: "none" | "underline" | "line-through";
   lineHeight?: number; // Relative multiplier (e.g. 1.2-2.5), default 1.4
   letterSpacing?: number; // Character spacing in px (range -1 to 10), default 0
   verticalAlign?: "top" | "center" | "bottom"; // Vertical alignment inside box, default "top"

@@ -199,9 +199,11 @@ export function TextBlockComponent({
             overflow: "hidden", // No scrollbars, keep fixed box
             fontSize: `${styles.fontSize || 16}px`,
             fontWeight: styles.fontWeight || "normal",
+            fontStyle: styles.fontStyle || "normal",
             fontFamily: styles.fontFamily || "inherit",
             color: getDefaultTextColor(),
             textAlign: styles.textAlign || "left",
+            textDecoration: styles.textDecoration || "none",
             lineHeight: styles.lineHeight || 1.4, // Default 1.4 if missing
             letterSpacing: styles.letterSpacing !== undefined ? `${styles.letterSpacing}px` : "0px", // Default 0 if missing
             backgroundColor: "transparent",
@@ -224,9 +226,11 @@ export function TextBlockComponent({
             wordWrap: "break-word",
             fontSize: `${styles.fontSize || 16}px`,
             fontWeight: styles.fontWeight || "normal",
+            fontStyle: styles.fontStyle || "normal",
             fontFamily: styles.fontFamily || "inherit",
             color: getDefaultTextColor(),
             textAlign: styles.textAlign || "left",
+            textDecoration: styles.textDecoration || "none",
             lineHeight: styles.lineHeight || 1.4,
             letterSpacing: styles.letterSpacing !== undefined ? `${styles.letterSpacing}px` : "0px",
             ...effectStyles, // Apply text effects (shadow, outline, highlight)
