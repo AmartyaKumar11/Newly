@@ -63,6 +63,8 @@ export interface TranslationResult {
 // Constants
 // ============================================================================
 
+// Font families allowed in editor UI (more permissive than AI schema)
+// AI output is still restricted to the original 7 fonts for consistency
 const ALLOWED_FONT_FAMILIES = [
   "system-ui",
   "Arial",

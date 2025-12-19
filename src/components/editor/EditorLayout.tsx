@@ -12,6 +12,7 @@ import { EditorCanvasWrapper } from "./EditorCanvasWrapper";
 import { EditorPropertiesPanel } from "./EditorPropertiesPanel";
 import { AIPanel } from "./AIPanel";
 import { TextFloatingToolbar } from "./TextFloatingToolbar";
+import { PositionSidebarWrapper } from "./PositionSidebarWrapper";
 
 interface Newsletter {
   _id: string;
@@ -316,6 +317,9 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
 
         {/* Floating overlay layer for selection toolbars */}
         <TextFloatingToolbar />
+
+        {/* Position Sidebar */}
+        <PositionSidebarWrapper />
 
         {/* AI Panel */}
         <AIPanel

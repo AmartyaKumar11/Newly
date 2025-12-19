@@ -8,7 +8,8 @@ const CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 800;
 const TOOLBAR_OFFSET = 12; // Offset above block in pixels
 
-// Font allowlist (from schema)
+// Font allowlist (web-safe fonts + system fonts)
+// Note: AI output is restricted to the original 7 fonts, but users can manually select any font
 const FONT_FAMILIES = [
   "system-ui",
   "Arial",
@@ -17,6 +18,26 @@ const FONT_FAMILIES = [
   "Georgia",
   "Courier New",
   "Verdana",
+  // Additional web-safe fonts
+  "Comic Sans MS",
+  "Impact",
+  "Trebuchet MS",
+  "Tahoma",
+  "Lucida Console",
+  "Palatino",
+  "Garamond",
+  "Bookman",
+  "Avant Garde",
+  "Century Gothic",
+  "Monaco",
+  "Consolas",
+  "Courier",
+  "Lucida Sans Unicode",
+  "MS Sans Serif",
+  "MS Serif",
+  "Symbol",
+  "Webdings",
+  "Wingdings",
 ] as const;
 
 // Recent colors storage (localStorage key)
@@ -201,18 +222,19 @@ export function TextFloatingToolbar() {
   };
 
   return (
-    <div
-      ref={toolbarRef}
-      className="fixed z-[100] rounded-lg border border-zinc-300 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800"
-      style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        pointerEvents: "auto",
-        transform: "translateZ(0)", // Force hardware acceleration
-      }}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
+    <>
+      <div
+        ref={toolbarRef}
+        className="fixed z-[100] rounded-lg border border-zinc-300 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800"
+        style={{
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          pointerEvents: "auto",
+          transform: "translateZ(0)", // Force hardware acceleration
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
       <div className="flex items-center gap-0.5 px-1.5 py-1">
         {/* 1. Font Family */}
         <select
@@ -605,41 +627,22 @@ export function TextFloatingToolbar() {
         {/* Divider */}
         <div className="h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
-        {/* 10. Position Menu */}
-        <div className="relative">
-          <button
-            onClick={() => setShowPositionMenu(!showPositionMenu)}
-            className="flex h-7 items-center gap-1 rounded px-2 text-xs text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            title="Position"
-          >
-            Position
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {showPositionMenu && (
-            <div className="absolute right-0 top-8 z-10 rounded-lg border border-zinc-300 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-              <button
-                onClick={() => {
-                  handleZIndexChange(1);
-                  setShowPositionMenu(false);
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Bring Forward
-              </button>
-              <button
-                onClick={() => {
-                  handleZIndexChange(-1);
-                  setShowPositionMenu(false);
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Send Backward
-              </button>
-            </div>
-          )}
-        </div>
+        {/* 10. Position Button - Opens Position Sidebar */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (selectedBlock) {
+              // Dispatch event to open sidebar
+              window.dispatchEvent(new CustomEvent("open-position-sidebar", { 
+                detail: { blockId: selectedBlock.id } 
+              }));
+            }
+          }}
+          className="flex h-7 items-center gap-1 rounded px-2 text-xs text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          title="Position & Arrange"
+        >
+          Position
+        </button>
       </div>
 
       {/* Click outside to close dropdowns */}
@@ -661,18 +664,13 @@ export function TextFloatingToolbar() {
           onClick={() => setShowTextCaseMenu(false)}
         />
       )}
-      {showPositionMenu && (
-        <div
-          className="fixed inset-0 z-[99]"
-          onClick={() => setShowPositionMenu(false)}
-        />
-      )}
       {showSpacingPanel && (
         <div
           className="fixed inset-0 z-[99]"
           onClick={() => setShowSpacingPanel(false)}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 }
