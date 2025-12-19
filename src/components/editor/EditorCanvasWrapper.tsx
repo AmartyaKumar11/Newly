@@ -148,6 +148,7 @@ export function EditorCanvasWrapper() {
       >
         {/* Canvas area */}
         <div
+          data-canvas-element
           onClick={handleCanvasClick}
           className="relative rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
           style={{

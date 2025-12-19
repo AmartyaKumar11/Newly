@@ -78,12 +78,13 @@ export function TextFloatingToolbar() {
   const [showEffects, setShowEffects] = useState(false);
   const [showTextCaseMenu, setShowTextCaseMenu] = useState(false);
   const [showPositionMenu, setShowPositionMenu] = useState(false);
+  const [showSpacingPanel, setShowSpacingPanel] = useState(false);
 
   // Only show for text blocks, hide during dragging/resizing or text editing
   const isTextBlockSelected = selectedBlock && isTextBlock(selectedBlock);
   const shouldShow = isTextBlockSelected && editorMode === "idle";
 
-  // Calculate toolbar position relative to selected block
+  // Calculate toolbar position at top center of canvas
   useEffect(() => {
     if (!shouldShow || !selectedBlock || !isTextBlock(selectedBlock)) {
       setPosition(null);
@@ -91,16 +92,15 @@ export function TextFloatingToolbar() {
     }
 
     const updatePosition = () => {
-      // Find the actual block element in the DOM using data attribute
-      const blockElement = document.querySelector(`[data-block-id="${selectedBlock.id}"]`) as HTMLElement;
-      if (!blockElement) {
-        // Retry after a short delay if block not found yet
+      // Find the canvas element using data attribute (more reliable)
+      const canvasElement = document.querySelector('[data-canvas-element]') as HTMLElement;
+      if (!canvasElement) {
         setTimeout(updatePosition, 50);
         return;
       }
 
-      // Get the block's bounding rect (already accounts for zoom/transform)
-      const blockRect = blockElement.getBoundingClientRect();
+      // Get canvas bounding rect (accounts for zoom/transform)
+      const canvasRect = canvasElement.getBoundingClientRect();
 
       // Wait for toolbar to render to get its dimensions
       if (!toolbarRef.current) {
@@ -111,66 +111,53 @@ export function TextFloatingToolbar() {
       const toolbarWidth = toolbarRef.current.offsetWidth;
       const toolbarHeight = toolbarRef.current.offsetHeight;
 
-      // Position toolbar above block, perfectly centered horizontally (like Canva)
-      const blockCenterX = blockRect.left + blockRect.width / 2;
-      const x = blockCenterX - toolbarWidth / 2;
-      const y = blockRect.top - toolbarHeight - TOOLBAR_OFFSET;
+      // Position toolbar at top center of canvas
+      // Use the center of the canvas horizontally
+      const canvasCenterX = canvasRect.left + canvasRect.width / 2;
+      const x = canvasCenterX - toolbarWidth / 2;
       
-      // Ensure toolbar is centered on block, not constrained too early
-      // Only constrain if it would go off-screen
+      // Position at top of canvas with small offset
+      const y = canvasRect.top + TOOLBAR_OFFSET;
 
-      // Constrain to viewport (but prefer centered position)
+      // Only constrain if absolutely necessary (when toolbar would go off-screen)
       const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
       const minX = 8;
       const maxX = viewportWidth - toolbarWidth - 8;
       
-      // Only constrain X if it would go off-screen, otherwise keep centered
       let constrainedX = x;
+      // Only constrain if it would actually go off-screen
       if (x < minX) {
         constrainedX = minX;
-      } else if (x > maxX) {
+      } else if (x + toolbarWidth > viewportWidth - 8) {
         constrainedX = maxX;
+      } else {
+        // Keep centered
+        constrainedX = x;
       }
-      
-      const constrainedY = Math.max(8, Math.min(y, viewportHeight - toolbarHeight - 8));
 
-      setPosition({ x: constrainedX, y: constrainedY });
+      setPosition({ x: constrainedX, y });
     };
 
     // Initial position update
     updatePosition();
 
-    // Update on scroll, resize, zoom change, and block position changes
+    // Update on resize, zoom change, and scroll
     const handleUpdate = () => {
       requestAnimationFrame(updatePosition);
     };
 
-    window.addEventListener("scroll", handleUpdate, true);
     window.addEventListener("resize", handleUpdate);
-    
-    // Use MutationObserver to detect block position changes
-    const observer = new MutationObserver(handleUpdate);
-    const canvasElement = document.querySelector('[class*="relative rounded-lg border"]');
-    if (canvasElement) {
-      observer.observe(canvasElement, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["style"],
-      });
-    }
+    window.addEventListener("scroll", handleUpdate, true);
 
-    // Also update periodically for smooth repositioning during drag/resize
-    const interval = setInterval(handleUpdate, 50);
+    // Also update when zoom changes (check periodically)
+    const interval = setInterval(handleUpdate, 100);
 
     return () => {
-      window.removeEventListener("scroll", handleUpdate, true);
       window.removeEventListener("resize", handleUpdate);
-      observer.disconnect();
+      window.removeEventListener("scroll", handleUpdate, true);
       clearInterval(interval);
     };
-  }, [shouldShow, selectedBlock, zoomLevel, editorMode]);
+  }, [shouldShow, selectedBlock, zoomLevel]);
 
   if (!shouldShow || !selectedBlock || !isTextBlock(selectedBlock)) {
     return null;
@@ -216,7 +203,7 @@ export function TextFloatingToolbar() {
   return (
     <div
       ref={toolbarRef}
-      className="fixed z-[100] rounded-lg border border-zinc-300 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+      className="fixed z-[100] rounded-lg border border-zinc-300 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
@@ -472,43 +459,130 @@ export function TextFloatingToolbar() {
         {/* Divider */}
         <div className="h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
-        {/* 7. Line Height */}
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-zinc-600 dark:text-zinc-400">LH</span>
-          <input
-            type="number"
-            step="0.1"
-            value={styles.lineHeight || 1.4}
-            onChange={(e) => {
-              const lh = parseFloat(e.target.value) || 1.4;
-              updateBlockStyles(block.id, { lineHeight: Math.max(1.2, Math.min(2.5, lh)) });
-            }}
-            className="h-7 w-12 rounded border border-zinc-300 bg-white px-1 text-center text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-            min="1.2"
-            max="2.5"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+        {/* 7. Spacing Panel Toggle (Line Height + Letter Spacing + Vertical Align) */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSpacingPanel(!showSpacingPanel)}
+            className={`flex h-7 w-7 items-center justify-center rounded ${
+              showSpacingPanel
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+            title="Spacing & Alignment"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          
+          {showSpacingPanel && (
+            <div className="absolute left-0 top-8 z-10 w-64 rounded-lg border border-zinc-300 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+              {/* Letter Spacing */}
+              <div className="mb-4">
+                <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Letter spacing
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="-1"
+                    max="10"
+                    step="0.1"
+                    value={styles.letterSpacing ?? 0}
+                    onChange={(e) => {
+                      const ls = parseFloat(e.target.value);
+                      updateBlockStyles(block.id, { letterSpacing: ls });
+                    }}
+                    className="flex-1 accent-blue-600 dark:accent-blue-500"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={styles.letterSpacing ?? 0}
+                    onChange={(e) => {
+                      const ls = parseFloat(e.target.value) || 0;
+                      updateBlockStyles(block.id, { letterSpacing: Math.max(-1, Math.min(10, ls)) });
+                    }}
+                    className="h-7 w-16 rounded border border-zinc-300 bg-zinc-50 px-2 text-center text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
 
-        {/* Divider */}
-        <div className="h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
+              {/* Line Spacing (Line Height) */}
+              <div className="mb-4">
+                <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Line spacing
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="1.2"
+                    max="2.5"
+                    step="0.01"
+                    value={styles.lineHeight || 1.4}
+                    onChange={(e) => {
+                      const lh = parseFloat(e.target.value);
+                      updateBlockStyles(block.id, { lineHeight: lh });
+                    }}
+                    className="flex-1 accent-blue-600 dark:accent-blue-500"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={styles.lineHeight || 1.4}
+                    onChange={(e) => {
+                      const lh = parseFloat(e.target.value) || 1.4;
+                      updateBlockStyles(block.id, { lineHeight: Math.max(1.2, Math.min(2.5, lh)) });
+                    }}
+                    className="h-7 w-16 rounded border border-zinc-300 bg-zinc-50 px-2 text-center text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
 
-        {/* 8. Letter Spacing */}
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-zinc-600 dark:text-zinc-400">LS</span>
-          <input
-            type="number"
-            step="0.1"
-            value={styles.letterSpacing ?? 0}
-            onChange={(e) => {
-              const ls = parseFloat(e.target.value) || 0;
-              updateBlockStyles(block.id, { letterSpacing: Math.max(-1, Math.min(10, ls)) });
-            }}
-            className="h-7 w-12 rounded border border-zinc-300 bg-white px-1 text-center text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-            min="-1"
-            max="10"
-            onClick={(e) => e.stopPropagation()}
-          />
+              {/* Anchor Text Box (Vertical Alignment) */}
+              <div>
+                <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Anchor text box
+                </label>
+                <div className="flex items-center gap-2">
+                  {(["top", "center", "bottom"] as const).map((align) => (
+                    <button
+                      key={align}
+                      onClick={() =>
+                        updateBlockStyles(block.id, {
+                          verticalAlign: align,
+                        })
+                      }
+                      className={`flex h-8 flex-1 items-center justify-center rounded ${
+                        (styles.verticalAlign || "top") === align
+                          ? "bg-blue-600 text-white dark:bg-blue-500"
+                          : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      }`}
+                      title={`Align ${align}`}
+                    >
+                      {align === "top" && (
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                        </svg>
+                      )}
+                      {align === "center" && (
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                        </svg>
+                      )}
+                      {align === "bottom" && (
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Divider */}
@@ -591,6 +665,12 @@ export function TextFloatingToolbar() {
         <div
           className="fixed inset-0 z-[99]"
           onClick={() => setShowPositionMenu(false)}
+        />
+      )}
+      {showSpacingPanel && (
+        <div
+          className="fixed inset-0 z-[99]"
+          onClick={() => setShowSpacingPanel(false)}
         />
       )}
     </div>
