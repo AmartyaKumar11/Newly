@@ -98,7 +98,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 z-[105] bg-black/20"
+        className="fixed inset-0 z-[105] cursor-pointer bg-black/20"
         onClick={onClose}
       />
       
@@ -109,7 +109,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Position</h2>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
+            className="flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
             title="Close"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -122,7 +122,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
         <div className="flex border-b border-zinc-200 dark:border-zinc-800">
           <button
             onClick={() => setActiveTab("arrange")}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition ${
+            className={`flex-1 px-4 py-3 text-sm font-medium transition cursor-pointer ${
               activeTab === "arrange"
                 ? "border-b-2 border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400"
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
@@ -132,7 +132,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
           </button>
           <button
             onClick={() => setActiveTab("layers")}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition ${
+            className={`flex-1 px-4 py-3 text-sm font-medium transition cursor-pointer ${
               activeTab === "layers"
                 ? "border-b-2 border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400"
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
@@ -154,7 +154,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={handleForward}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Move forward"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -164,7 +164,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
                   </button>
                   <button
                     onClick={handleBackward}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Move backward"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -174,7 +174,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
                   </button>
                   <button
                     onClick={handleToFront}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Bring to front"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -184,7 +184,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
                   </button>
                   <button
                     onClick={handleToBack}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Send to back"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -203,57 +203,45 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={handleAlignTop}
-                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white p-2 text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Align to top"
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M3 8h18M3 12h9" />
-                    </svg>
+                    Top
                   </button>
                   <button
                     onClick={handleAlignLeft}
-                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white p-2 text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Align to left"
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 3v18M8 3v18M12 3v9" />
-                    </svg>
+                    Left
                   </button>
                   <button
                     onClick={handleAlignMiddle}
-                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white p-2 text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Align to middle (vertical center)"
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
+                    Middle
                   </button>
                   <button
                     onClick={handleAlignCenter}
-                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white p-2 text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Align to center (horizontal center)"
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 4h12M6 12h12M6 20h12" />
-                    </svg>
+                    Center
                   </button>
                   <button
                     onClick={handleAlignBottom}
-                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white p-2 text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Align to bottom"
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12h9m0 0h9m-9 0v8m0-8V4" />
-                    </svg>
+                    Bottom
                   </button>
                   <button
                     onClick={handleAlignRight}
-                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white p-2 text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
                     title="Align to right"
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 3v18M16 3v18M12 3v9" />
-                    </svg>
+                    Right
                   </button>
                 </div>
               </div>
@@ -303,7 +291,7 @@ export function PositionSidebar({ block, isOpen, onClose }: PositionSidebarProps
                       />
                       <button
                         onClick={() => setLockAspectRatio(!lockAspectRatio)}
-                        className={`flex h-9 w-9 items-center justify-center rounded border transition ${
+                        className={`flex h-9 w-9 items-center justify-center rounded border transition cursor-pointer ${
                           lockAspectRatio
                             ? "border-blue-600 bg-blue-100 text-blue-700 dark:border-blue-500 dark:bg-blue-900 dark:text-blue-300"
                             : "border-zinc-300 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"

@@ -8,7 +8,7 @@ const CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 800;
 const TOOLBAR_OFFSET = 12; // Offset above block in pixels
 
-// Font allowlist (web-safe fonts + system fonts)
+// Font allowlist (web-safe fonts + Google Fonts)
 // Note: AI output is restricted to the original 7 fonts, but users can manually select any font
 const FONT_FAMILIES = [
   "system-ui",
@@ -38,6 +38,20 @@ const FONT_FAMILIES = [
   "Symbol",
   "Webdings",
   "Wingdings",
+  // Google Fonts
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Montserrat",
+  "Playfair Display",
+  "Poppins",
+  "Inter",
+  "Raleway",
+  "Merriweather",
+  "Source Sans 3",
+  "Nunito",
+  "Ubuntu",
+  "PT Sans",
 ] as const;
 
 // Recent colors storage (localStorage key)
@@ -240,7 +254,7 @@ export function TextFloatingToolbar() {
         <select
           value={styles.fontFamily || "system-ui"}
           onChange={(e) => updateBlockStyles(block.id, { fontFamily: e.target.value })}
-          className="h-7 rounded border border-zinc-300 bg-white px-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+          className="h-7 cursor-pointer rounded border border-zinc-300 bg-white px-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
           onClick={(e) => e.stopPropagation()}
           style={{ minWidth: "100px" }}
         >
@@ -258,7 +272,7 @@ export function TextFloatingToolbar() {
         <div className="flex items-center gap-1">
           <button
             onClick={() => handleFontSizeChange(-1)}
-            className="flex h-7 w-7 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
             title="Decrease font size"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -279,7 +293,7 @@ export function TextFloatingToolbar() {
           />
           <button
             onClick={() => handleFontSizeChange(1)}
-            className="flex h-7 w-7 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
             title="Increase font size"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -299,7 +313,7 @@ export function TextFloatingToolbar() {
                 fontWeight: styles.fontWeight === "bold" || styles.fontWeight === 700 ? "normal" : "bold",
               })
             }
-            className={`flex h-7 w-7 items-center justify-center rounded text-xs font-bold ${
+            className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded text-xs font-bold ${
               styles.fontWeight === "bold" || styles.fontWeight === 700
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -314,7 +328,7 @@ export function TextFloatingToolbar() {
                 fontStyle: styles.fontStyle === "italic" ? "normal" : "italic",
               })
             }
-            className={`flex h-7 w-7 items-center justify-center rounded text-xs italic ${
+            className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded text-xs italic ${
               styles.fontStyle === "italic"
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -329,7 +343,7 @@ export function TextFloatingToolbar() {
                 textDecoration: styles.textDecoration === "underline" ? "none" : "underline",
               })
             }
-            className={`flex h-7 w-7 items-center justify-center rounded text-xs ${
+            className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded text-xs ${
               styles.textDecoration === "underline"
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -344,7 +358,7 @@ export function TextFloatingToolbar() {
                 textDecoration: styles.textDecoration === "line-through" ? "none" : "line-through",
               })
             }
-            className={`flex h-7 w-7 items-center justify-center rounded text-xs ${
+            className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded text-xs ${
               styles.textDecoration === "line-through"
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -362,7 +376,7 @@ export function TextFloatingToolbar() {
         <div className="relative">
           <button
             onClick={() => setShowColorPicker(!showColorPicker)}
-            className="flex h-7 w-7 items-center justify-center rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
             title="Text color"
           >
             <div
@@ -387,7 +401,7 @@ export function TextFloatingToolbar() {
                 type="color"
                 value={styles.color || "#000000"}
                 onChange={(e) => handleColorChange(e.target.value)}
-                className="h-8 w-full rounded border border-zinc-300 dark:border-zinc-700"
+                className="h-8 w-full cursor-pointer rounded border border-zinc-300 dark:border-zinc-700"
               />
             </div>
           )}
@@ -400,7 +414,7 @@ export function TextFloatingToolbar() {
         <div className="relative">
           <button
             onClick={() => setShowTextCaseMenu(!showTextCaseMenu)}
-            className="flex h-7 items-center gap-1 rounded px-2 text-xs text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="flex h-7 cursor-pointer items-center gap-1 rounded px-2 text-xs text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
             title="Text case"
           >
             Aa
@@ -415,7 +429,7 @@ export function TextFloatingToolbar() {
                   handleTextCase("uppercase");
                   setShowTextCaseMenu(false);
                 }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="block w-full cursor-pointer px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 UPPERCASE
               </button>
@@ -424,7 +438,7 @@ export function TextFloatingToolbar() {
                   handleTextCase("lowercase");
                   setShowTextCaseMenu(false);
                 }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="block w-full cursor-pointer px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 lowercase
               </button>
@@ -433,7 +447,7 @@ export function TextFloatingToolbar() {
                   handleTextCase("title");
                   setShowTextCaseMenu(false);
                 }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="block w-full cursor-pointer px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 Title Case
               </button>
@@ -453,7 +467,7 @@ export function TextFloatingToolbar() {
             const nextIndex = (currentIndex + 1) % alignments.length;
             updateBlockStyles(block.id, { textAlign: alignments[nextIndex] });
           }}
-          className="flex h-7 w-7 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
           title={`Align ${styles.textAlign || "left"} (click to cycle)`}
         >
           {styles.textAlign === "left" && (
@@ -485,7 +499,7 @@ export function TextFloatingToolbar() {
         <div className="relative">
           <button
             onClick={() => setShowSpacingPanel(!showSpacingPanel)}
-            className={`flex h-7 w-7 items-center justify-center rounded ${
+            className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded ${
               showSpacingPanel
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -577,7 +591,7 @@ export function TextFloatingToolbar() {
                           verticalAlign: align,
                         })
                       }
-                      className={`flex h-8 flex-1 items-center justify-center rounded ${
+                      className={`flex h-8 flex-1 cursor-pointer items-center justify-center rounded ${
                         (styles.verticalAlign || "top") === align
                           ? "bg-blue-600 text-white dark:bg-blue-500"
                           : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
@@ -618,7 +632,7 @@ export function TextFloatingToolbar() {
             // For now, just a placeholder that doesn't break functionality
             setShowEffects(false);
           }}
-          className="flex h-7 items-center gap-1 rounded px-2 text-xs text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="flex h-7 cursor-pointer items-center gap-1 rounded px-2 text-xs text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
           title="Text effects (see sidebar)"
         >
           Effects
@@ -638,7 +652,7 @@ export function TextFloatingToolbar() {
               }));
             }
           }}
-          className="flex h-7 items-center gap-1 rounded px-2 text-xs text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="flex h-7 cursor-pointer items-center gap-1 rounded px-2 text-xs text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
           title="Position & Arrange"
         >
           Position
@@ -648,25 +662,25 @@ export function TextFloatingToolbar() {
       {/* Click outside to close dropdowns */}
       {showColorPicker && (
         <div
-          className="fixed inset-0 z-[99]"
+          className="fixed inset-0 z-[99] cursor-pointer"
           onClick={() => setShowColorPicker(false)}
         />
       )}
       {showEffects && (
         <div
-          className="fixed inset-0 z-[99]"
+          className="fixed inset-0 z-[99] cursor-pointer"
           onClick={() => setShowEffects(false)}
         />
       )}
       {showTextCaseMenu && (
         <div
-          className="fixed inset-0 z-[99]"
+          className="fixed inset-0 z-[99] cursor-pointer"
           onClick={() => setShowTextCaseMenu(false)}
         />
       )}
       {showSpacingPanel && (
         <div
-          className="fixed inset-0 z-[99]"
+          className="fixed inset-0 z-[99] cursor-pointer"
           onClick={() => setShowSpacingPanel(false)}
         />
       )}
