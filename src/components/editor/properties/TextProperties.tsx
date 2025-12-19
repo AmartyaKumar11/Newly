@@ -2,6 +2,7 @@
 
 import type { TextBlock } from "@/types/blocks";
 import { useEditorStateStore } from "@/stores/editorStateStore";
+import { TextEffectsPanel } from "./TextEffectsPanel";
 
 interface TextPropertiesProps {
   block: TextBlock;
@@ -38,6 +39,46 @@ export function TextProperties({ block }: TextPropertiesProps) {
           min="8"
           max="72"
         />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          Line Height
+        </label>
+        <input
+          type="number"
+          step="0.1"
+          value={block.styles.lineHeight || 1.4}
+          onChange={(e) =>
+            updateBlockStyles(block.id, { lineHeight: parseFloat(e.target.value) || 1.4 })
+          }
+          className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+          min="1.2"
+          max="2.5"
+        />
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          Relative multiplier (default: 1.4)
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          Letter Spacing
+        </label>
+        <input
+          type="number"
+          step="0.1"
+          value={block.styles.letterSpacing ?? 0}
+          onChange={(e) =>
+            updateBlockStyles(block.id, { letterSpacing: parseFloat(e.target.value) || 0 })
+          }
+          className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+          min="-1"
+          max="10"
+        />
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          Character spacing in pixels (default: 0)
+        </p>
       </div>
 
       <div>
@@ -88,6 +129,55 @@ export function TextProperties({ block }: TextPropertiesProps) {
           <option value="right">Right</option>
           <option value="justify">Justify</option>
         </select>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          Vertical Align
+        </label>
+        <select
+          value={block.styles.verticalAlign || "top"}
+          onChange={(e) =>
+            updateBlockStyles(block.id, {
+              verticalAlign: e.target.value as "top" | "center" | "bottom",
+            })
+          }
+          className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+        >
+          <option value="top">Top</option>
+          <option value="center">Center</option>
+          <option value="bottom">Bottom</option>
+        </select>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          Vertical alignment inside the text box
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          Text Role
+        </label>
+        <select
+          value={block.role || "body"}
+          onChange={(e) =>
+            updateBlock(block.id, {
+              role: e.target.value as "heading" | "subheading" | "body" | "caption" | undefined,
+            })
+          }
+          className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+        >
+          <option value="heading">Heading</option>
+          <option value="subheading">Subheading</option>
+          <option value="body">Body</option>
+          <option value="caption">Caption</option>
+        </select>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          Semantic role (affects default styling hints only, can be overridden)
+        </p>
+      </div>
+
+      <div className="border-t border-zinc-200 pt-4 dark:border-zinc-700">
+        <TextEffectsPanel block={block} />
       </div>
     </div>
   );

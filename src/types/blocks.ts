@@ -12,6 +12,27 @@ export interface Size {
   height: number;
 }
 
+export interface TextEffects {
+  shadow?: {
+    enabled: boolean;
+    offsetX?: number; // px, default 0
+    offsetY?: number; // px, default 0
+    blur?: number; // px, default 0
+    color?: string; // default "#000000"
+    opacity?: number; // 0-1, default 0.5
+  };
+  outline?: {
+    enabled: boolean;
+    width?: number; // px, default 1
+    color?: string; // default "#000000"
+  };
+  highlight?: {
+    enabled: boolean;
+    color?: string; // default "#ffff00"
+    opacity?: number; // 0-1, default 0.3
+  };
+}
+
 export interface BlockStyles {
   // Common styles
   backgroundColor?: string;
@@ -25,6 +46,10 @@ export interface BlockStyles {
   fontFamily?: string;
   color?: string;
   textAlign?: "left" | "center" | "right" | "justify";
+  lineHeight?: number; // Relative multiplier (e.g. 1.2-2.5), default 1.4
+  letterSpacing?: number; // Character spacing in px (range -1 to 10), default 0
+  verticalAlign?: "top" | "center" | "bottom"; // Vertical alignment inside box, default "top"
+  effects?: TextEffects; // Non-destructive text effects (shadow, outline, highlight)
   // Image specific
   objectFit?: "cover" | "contain" | "fill" | "none";
 }
@@ -38,9 +63,22 @@ export interface BaseBlock {
   zIndex: number;
 }
 
+export interface TextAnimations {
+  // Future animation structure (scaffolding only, no runtime behavior yet)
+  // This field exists for forward compatibility but is not currently used
+  // Example future structure:
+  // type?: "fadeIn" | "slideIn" | "bounce" | "none";
+  // duration?: number; // ms
+  // delay?: number; // ms
+  // easing?: string;
+  [key: string]: unknown; // Flexible structure for future implementation
+}
+
 export interface TextBlock extends BaseBlock {
   type: "text";
   content: string;
+  role?: "heading" | "subheading" | "body" | "caption"; // Semantic role (styling hint only, not enforced)
+  animations?: TextAnimations; // Animation scaffolding (empty structure, no rendering changes)
 }
 
 export interface ImageBlock extends BaseBlock {

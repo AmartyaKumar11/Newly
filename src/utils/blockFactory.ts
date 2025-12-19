@@ -11,7 +11,8 @@ const DEFAULT_POSITION = { x: 100, y: 100 };
 
 export function createTextBlock(
   content: string = "Text",
-  position = DEFAULT_POSITION
+  position = DEFAULT_POSITION,
+  role?: "heading" | "subheading" | "body" | "caption"
 ): TextBlock {
   // Detect dark mode for default text color
   const isDarkMode = typeof window !== "undefined" && (
@@ -19,19 +20,38 @@ export function createTextBlock(
     window.matchMedia("(prefers-color-scheme: dark)").matches
   );
   
+  // Role-based default styles (hints only, user can override)
+  const getRoleDefaults = (role?: string) => {
+    switch (role) {
+      case "heading":
+        return { fontSize: 32, fontWeight: "bold", lineHeight: 1.2 };
+      case "subheading":
+        return { fontSize: 24, fontWeight: 600, lineHeight: 1.3 };
+      case "body":
+        return { fontSize: 16, fontWeight: "normal", lineHeight: 1.5 };
+      case "caption":
+        return { fontSize: 12, fontWeight: "normal", lineHeight: 1.4 };
+      default:
+        return { fontSize: 16, fontWeight: "normal", lineHeight: 1.4 };
+    }
+  };
+
+  const roleDefaults = getRoleDefaults(role);
+  
   return {
     id: generateId(),
     type: "text",
     content,
+    role,
     position,
     size: { width: 200, height: 100 },
     styles: {
-      fontSize: 16,
-      fontWeight: "normal",
+      ...roleDefaults,
       color: isDarkMode ? "#fafafa" : "#000000",
       textAlign: "left",
     },
     zIndex: 1,
+    animations: undefined, // Animation scaffolding (empty, no runtime behavior)
   };
 }
 

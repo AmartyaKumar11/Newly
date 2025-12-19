@@ -846,6 +846,8 @@ function translateBlock(
         id: realId,
         type: "text",
         content: textContent.text,
+        role: undefined, // Role is optional, AI doesn't enforce it
+        animations: undefined, // Animation scaffolding (empty, no runtime behavior)
         position,
         size,
         styles,

@@ -40,17 +40,27 @@ export function TextBlockComponent({
   }, [isEditing]);
 
   // Detect vertical overflow (purely visual, not persisted)
+  // This runs reactively on content/size/style changes and during resize
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
 
     const checkOverflow = () => {
-      const overflow = el.scrollHeight > el.clientHeight + 1; // small tolerance
+      // Compare scrollHeight (content height) vs clientHeight (visible box height)
+      // Small tolerance (1px) accounts for rounding/subpixel rendering
+      const overflow = el.scrollHeight > el.clientHeight + 1;
       setIsOverflowing(overflow);
     };
 
+    // Check immediately
     checkOverflow();
-  }, [editedContent, size.height, styles.fontSize, styles.lineHeight, isEditing]);
+
+    // Also check after a brief delay to catch resize transitions
+    // This ensures overflow detection updates smoothly during drag resize
+    const timeoutId = setTimeout(checkOverflow, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [editedContent, size.width, size.height, styles.fontSize, styles.lineHeight, styles.letterSpacing, isEditing]);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -81,6 +91,76 @@ export function TextBlockComponent({
     return isDarkMode ? "#fafafa" : "#000000";
   };
 
+  const verticalAlign = styles.verticalAlign || "top";
+  const justifyContentMap = {
+    top: "flex-start",
+    center: "center",
+    bottom: "flex-end",
+  };
+
+  // Build text effects CSS (non-destructive, CSS-only overlays)
+  const buildTextEffects = () => {
+    const effects = styles.effects;
+    if (!effects) return {};
+
+    const textShadow: string[] = [];
+    let webkitTextStroke: string | undefined = undefined;
+    let backgroundColor: string | undefined = undefined;
+
+    // Shadow effect
+    if (effects.shadow?.enabled) {
+      const offsetX = effects.shadow.offsetX ?? 0;
+      const offsetY = effects.shadow.offsetY ?? 0;
+      const blur = effects.shadow.blur ?? 0;
+      const color = effects.shadow.color || "#000000";
+      const opacity = effects.shadow.opacity ?? 0.5;
+      
+      // Convert hex to rgba if needed
+      let rgbaColor = color;
+      if (color.startsWith("#")) {
+        const r = parseInt(color.slice(1, 3), 16);
+        const g = parseInt(color.slice(3, 5), 16);
+        const b = parseInt(color.slice(5, 7), 16);
+        rgbaColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      }
+      
+      textShadow.push(`${offsetX}px ${offsetY}px ${blur}px ${rgbaColor}`);
+    }
+
+    // Outline effect (using -webkit-text-stroke)
+    if (effects.outline?.enabled) {
+      const width = effects.outline.width ?? 1;
+      const color = effects.outline.color || "#000000";
+      webkitTextStroke = `${width}px ${color}`;
+    }
+
+    // Highlight effect (background color with opacity)
+    if (effects.highlight?.enabled) {
+      const color = effects.highlight.color || "#ffff00";
+      const opacity = effects.highlight.opacity ?? 0.3;
+      
+      // Convert hex to rgba if needed
+      if (color.startsWith("#")) {
+        const r = parseInt(color.slice(1, 3), 16);
+        const g = parseInt(color.slice(3, 5), 16);
+        const b = parseInt(color.slice(5, 7), 16);
+        backgroundColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      } else {
+        backgroundColor = color;
+      }
+    }
+
+    return {
+      textShadow: textShadow.length > 0 ? textShadow.join(", ") : undefined,
+      WebkitTextStroke: webkitTextStroke,
+      WebkitTextStrokeColor: effects.outline?.enabled ? effects.outline.color || "#000000" : undefined,
+      WebkitTextStrokeWidth: effects.outline?.enabled ? `${effects.outline.width ?? 1}px` : undefined,
+      backgroundColor: backgroundColor,
+    };
+  };
+
+  const effectStyles = buildTextEffects();
+
   return (
     <div
       onClick={onSelect}
@@ -92,11 +172,9 @@ export function TextBlockComponent({
         height: "100%",
         position: "relative",
         overflow: "hidden", // Respect fixed bounding box, hide overflow
-        fontSize: `${styles.fontSize || 16}px`,
-        fontWeight: styles.fontWeight || "normal",
-        fontFamily: styles.fontFamily || "inherit",
-        color: getDefaultTextColor(),
-        textAlign: styles.textAlign || "left",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: justifyContentMap[verticalAlign], // Vertical alignment using flexbox
         backgroundColor: styles.backgroundColor || "transparent",
         borderColor: styles.borderColor || "transparent",
         borderWidth: styles.borderWidth ? `${styles.borderWidth}px` : "0",
@@ -117,28 +195,41 @@ export function TextBlockComponent({
           onKeyDown={handleKeyDown}
           style={{
             width: "100%",
-            height: "100%",
-            minHeight: `${size.height}px`,
+            flex: "1 1 auto", // Fill available space in flex container
             overflow: "hidden", // No scrollbars, keep fixed box
             fontSize: `${styles.fontSize || 16}px`,
             fontWeight: styles.fontWeight || "normal",
             fontFamily: styles.fontFamily || "inherit",
             color: getDefaultTextColor(),
             textAlign: styles.textAlign || "left",
+            lineHeight: styles.lineHeight || 1.4, // Default 1.4 if missing
+            letterSpacing: styles.letterSpacing !== undefined ? `${styles.letterSpacing}px` : "0px", // Default 0 if missing
             backgroundColor: "transparent",
             border: "none",
             outline: "none",
             resize: "none",
             padding: "0",
             margin: "0",
+            // Note: Textarea content always starts at top when editing
+            // Vertical alignment primarily affects display mode (non-editing)
+            // This is acceptable UX - editing mode fills container, display mode respects alignment
           }}
         />
       ) : (
         <div
           ref={contentRef}
           style={{
+            width: "100%",
             whiteSpace: "pre-wrap",
             wordWrap: "break-word",
+            fontSize: `${styles.fontSize || 16}px`,
+            fontWeight: styles.fontWeight || "normal",
+            fontFamily: styles.fontFamily || "inherit",
+            color: getDefaultTextColor(),
+            textAlign: styles.textAlign || "left",
+            lineHeight: styles.lineHeight || 1.4,
+            letterSpacing: styles.letterSpacing !== undefined ? `${styles.letterSpacing}px` : "0px",
+            ...effectStyles, // Apply text effects (shadow, outline, highlight)
           }}
         >
           {editedContent || "Text"}

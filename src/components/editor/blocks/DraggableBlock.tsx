@@ -159,14 +159,22 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
         newX = Math.max(0, Math.min(newX, CANVAS_WIDTH - newWidth));
         newY = Math.max(0, Math.min(newY, CANVAS_HEIGHT - newHeight));
 
-        // For text blocks, scale font size proportionally with horizontal resize
-        if (isTextBlock(currentBlock) && resizeStartRef.current.width > 0) {
-          const originalFontSize = currentBlock.styles.fontSize || 16;
-          const scaleFactor = newWidth / resizeStartRef.current.width;
-          const scaledFontSize = Math.max(8, Math.min(72, originalFontSize * scaleFactor));
-          updateBlockStyles(block.id, { fontSize: scaledFontSize });
+        // CRITICAL: Resize logic is geometry-only (box-driven sizing)
+        // - Updates ONLY block.size.width and block.size.height
+        // - NEVER modifies block.styles.fontSize
+        // - NEVER uses transform: scale
+        // - Works identically for all block types (text, image, shape)
+        // 
+        // Defensive guard: Prevent any font size changes during resize
+        // This ensures text blocks behave like image/shape blocks (geometry-only)
+        // Text content wraps/reflows within the fixed bounding box
+        if (isTextBlock(currentBlock)) {
+          // Explicitly ensure fontSize is NOT modified during resize
+          // Font size remains constant; text wraps within the resized box
+          // Overflow detection will handle visual indication if needed
         }
 
+        // Apply resize (geometry-only, no style mutations)
         resizeBlock(block.id, { width: newWidth, height: newHeight });
         if (newX !== currentBlock.position.x || newY !== currentBlock.position.y) {
           moveBlock(block.id, { x: newX, y: newY });
