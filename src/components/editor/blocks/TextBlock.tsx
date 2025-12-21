@@ -98,68 +98,244 @@ export function TextBlockComponent({
     bottom: "flex-end",
   };
 
-  // Build text effects CSS (non-destructive, CSS-only overlays)
-  const buildTextEffects = () => {
-    const effects = styles.effects;
-    if (!effects) return {};
-
-    const textShadow: string[] = [];
-    let webkitTextStroke: string | undefined = undefined;
-    let backgroundColor: string | undefined = undefined;
-
-    // Shadow effect
-    if (effects.shadow?.enabled) {
-      const offsetX = effects.shadow.offsetX ?? 0;
-      const offsetY = effects.shadow.offsetY ?? 0;
-      const blur = effects.shadow.blur ?? 0;
-      const color = effects.shadow.color || "#000000";
-      const opacity = effects.shadow.opacity ?? 0.5;
-      
-      // Convert hex to rgba if needed
-      let rgbaColor = color;
-      if (color.startsWith("#")) {
-        const r = parseInt(color.slice(1, 3), 16);
-        const g = parseInt(color.slice(3, 5), 16);
-        const b = parseInt(color.slice(5, 7), 16);
-        rgbaColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-      }
-      
-      textShadow.push(`${offsetX}px ${offsetY}px ${blur}px ${rgbaColor}`);
+  // Get preset defaults for each effect type
+  const getEffectDefaults = (type: string) => {
+    switch (type) {
+      case "shadow":
+        return { offsetX: 2, offsetY: 2, blur: 4, color: "#000000" };
+      case "lift":
+        return { offsetX: 0, offsetY: -3, blur: 8, color: "#000000" };
+      case "hollow":
+        return { color: "#000000" };
+      case "outline":
+        return { color: "#000000" };
+      case "echo":
+        return { offsetX: 2, offsetY: 2, color: "#000000" };
+      case "glitch":
+        return { offsetX: 2, offsetY: 0, color: "#000000" };
+      case "neon":
+        return { blur: 8, color: "#00ffff" };
+      case "background":
+        return { color: "#ffff00" };
+      default:
+        return {};
     }
-
-    // Outline effect (using -webkit-text-stroke)
-    if (effects.outline?.enabled) {
-      const width = effects.outline.width ?? 1;
-      const color = effects.outline.color || "#000000";
-      webkitTextStroke = `${width}px ${color}`;
-    }
-
-    // Highlight effect (background color with opacity)
-    if (effects.highlight?.enabled) {
-      const color = effects.highlight.color || "#ffff00";
-      const opacity = effects.highlight.opacity ?? 0.3;
-      
-      // Convert hex to rgba if needed
-      if (color.startsWith("#")) {
-        const r = parseInt(color.slice(1, 3), 16);
-        const g = parseInt(color.slice(3, 5), 16);
-        const b = parseInt(color.slice(5, 7), 16);
-        backgroundColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-      } else {
-        backgroundColor = color;
-      }
-    }
-
-    return {
-      textShadow: textShadow.length > 0 ? textShadow.join(", ") : undefined,
-      WebkitTextStroke: webkitTextStroke,
-      WebkitTextStrokeColor: effects.outline?.enabled ? effects.outline.color || "#000000" : undefined,
-      WebkitTextStrokeWidth: effects.outline?.enabled ? `${effects.outline.width ?? 1}px` : undefined,
-      backgroundColor: backgroundColor,
-    };
   };
 
-  const effectStyles = buildTextEffects();
+  // Render effect layers (non-destructive, absolute positioning)
+  // Backward compatibility: missing textEffect or type "none" = no effects
+  const renderEffectLayers = () => {
+    const textEffect = styles.textEffect;
+    // Missing textEffect or type "none" = no effects (backward compatible)
+    if (!textEffect || textEffect.type === "none" || !textEffect.type) {
+      return null;
+    }
+
+    const defaults = getEffectDefaults(textEffect.type);
+    const config = { ...defaults, ...textEffect.config };
+    const baseTextColor = getDefaultTextColor();
+    const fontSize = styles.fontSize || 16;
+    const fontWeight = styles.fontWeight || "normal";
+    const fontStyle = styles.fontStyle || "normal";
+    const fontFamily = styles.fontFamily || "inherit";
+    const textAlign = styles.textAlign || "left";
+    const lineHeight = styles.lineHeight || 1.4;
+    const letterSpacing = styles.letterSpacing !== undefined ? `${styles.letterSpacing}px` : "0px";
+
+    const baseStyle: React.CSSProperties = {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      whiteSpace: "pre-wrap",
+      wordWrap: "break-word",
+      fontSize: `${fontSize}px`,
+      fontWeight,
+      fontStyle,
+      fontFamily,
+      textAlign,
+      lineHeight,
+      letterSpacing,
+      pointerEvents: "none",
+      margin: 0,
+      padding: 0,
+    };
+
+    const layers: JSX.Element[] = [];
+
+    switch (textEffect.type) {
+      case "shadow":
+        layers.push(
+          <div
+            key="shadow-layer"
+            style={{
+              ...baseStyle,
+              color: config.color || "#000000",
+              opacity: 0.5,
+              transform: `translate(${config.offsetX || 2}px, ${config.offsetY || 2}px)`,
+              filter: `blur(${config.blur || 4}px)`,
+              zIndex: 1,
+            }}
+          >
+            {editedContent || "Text"}
+          </div>
+        );
+        break;
+
+      case "lift":
+        layers.push(
+          <div
+            key="lift-shadow"
+            style={{
+              ...baseStyle,
+              color: config.color || "#000000",
+              opacity: 0.3,
+              transform: `translate(0, ${config.offsetY || -3}px)`,
+              filter: `blur(${config.blur || 8}px)`,
+              zIndex: 1,
+            }}
+          >
+            {editedContent || "Text"}
+          </div>
+        );
+        break;
+
+      case "hollow":
+        layers.push(
+          <div
+            key="hollow-stroke"
+            style={{
+              ...baseStyle,
+              color: "transparent",
+              WebkitTextStroke: `2px ${config.color || "#000000"}`,
+              WebkitTextFillColor: "transparent",
+              zIndex: 1,
+            }}
+          >
+            {editedContent || "Text"}
+          </div>
+        );
+        break;
+
+      case "outline":
+        layers.push(
+          <div
+            key="outline-stroke"
+            style={{
+              ...baseStyle,
+              color: baseTextColor,
+              WebkitTextStroke: `2px ${config.color || "#000000"}`,
+              zIndex: 2,
+            }}
+          >
+            {editedContent || "Text"}
+          </div>
+        );
+        break;
+
+      case "echo":
+        layers.push(
+          <div
+            key="echo-layer"
+            style={{
+              ...baseStyle,
+              color: config.color || "#000000",
+              opacity: 0.4,
+              transform: `translate(${config.offsetX || 2}px, ${config.offsetY || 2}px)`,
+              zIndex: 1,
+            }}
+          >
+            {editedContent || "Text"}
+          </div>
+        );
+        break;
+
+      case "glitch":
+        layers.push(
+          <>
+            <div
+              key="glitch-1"
+              style={{
+                ...baseStyle,
+                color: config.color || "#000000",
+                opacity: 0.5,
+                transform: `translate(${config.offsetX || 2}px, 0)`,
+                zIndex: 1,
+              }}
+            >
+              {editedContent || "Text"}
+            </div>
+            <div
+              key="glitch-2"
+              style={{
+                ...baseStyle,
+                color: config.color || "#000000",
+                opacity: 0.3,
+                transform: `translate(-${config.offsetX || 2}px, 0)`,
+                zIndex: 1,
+              }}
+            >
+              {editedContent || "Text"}
+            </div>
+          </>
+        );
+        break;
+
+      case "neon":
+        const neonColor = config.color || "#00ffff";
+        layers.push(
+          <>
+            <div
+              key="neon-glow-1"
+              style={{
+                ...baseStyle,
+                color: neonColor,
+                opacity: 0.8,
+                filter: `blur(${config.blur || 8}px)`,
+                zIndex: 1,
+              }}
+            >
+              {editedContent || "Text"}
+            </div>
+            <div
+              key="neon-glow-2"
+              style={{
+                ...baseStyle,
+                color: neonColor,
+                opacity: 0.6,
+                filter: `blur(${(config.blur || 8) * 1.5}px)`,
+                zIndex: 0,
+              }}
+            >
+              {editedContent || "Text"}
+            </div>
+          </>
+        );
+        break;
+
+      case "background":
+        const bgColor = config.color || "#ffff00";
+        layers.push(
+          <div
+            key="bg-highlight"
+            style={{
+              ...baseStyle,
+              backgroundColor: bgColor,
+              opacity: 0.3,
+              padding: "2px 4px",
+              borderRadius: "4px",
+              zIndex: -1,
+              transform: "translate(0, 0)",
+            }}
+          >
+            {editedContent || "Text"}
+          </div>
+        );
+        break;
+    }
+
+    return <>{layers}</>;
+  };
 
   return (
     <div
@@ -218,26 +394,33 @@ export function TextBlockComponent({
           }}
         />
       ) : (
-        <div
-          ref={contentRef}
-          style={{
-            width: "100%",
-            whiteSpace: "pre-wrap",
-            wordWrap: "break-word",
-            fontSize: `${styles.fontSize || 16}px`,
-            fontWeight: styles.fontWeight || "normal",
-            fontStyle: styles.fontStyle || "normal",
-            fontFamily: styles.fontFamily || "inherit",
-            color: getDefaultTextColor(),
-            textAlign: styles.textAlign || "left",
-            textDecoration: styles.textDecoration || "none",
-            lineHeight: styles.lineHeight || 1.4,
-            letterSpacing: styles.letterSpacing !== undefined ? `${styles.letterSpacing}px` : "0px",
-            ...effectStyles, // Apply text effects (shadow, outline, highlight)
-          }}
-        >
-          {editedContent || "Text"}
-        </div>
+        <>
+          {/* Effect layers (rendered behind base text, absolute positioning) */}
+          {renderEffectLayers()}
+          
+          {/* Base text layer (always on top, normal rendering) */}
+          <div
+            ref={contentRef}
+            style={{
+              position: "relative",
+              width: "100%",
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
+              fontSize: `${styles.fontSize || 16}px`,
+              fontWeight: styles.fontWeight || "normal",
+              fontStyle: styles.fontStyle || "normal",
+              fontFamily: styles.fontFamily || "inherit",
+              color: getDefaultTextColor(),
+              textAlign: styles.textAlign || "left",
+              textDecoration: styles.textDecoration || "none",
+              lineHeight: styles.lineHeight || 1.4,
+              letterSpacing: styles.letterSpacing !== undefined ? `${styles.letterSpacing}px` : "0px",
+              zIndex: 10, // Base text always on top
+            }}
+          >
+            {editedContent || "Text"}
+          </div>
+        </>
       )}
 
       {/* Overflow indicators (visual only, no state mutation) */}

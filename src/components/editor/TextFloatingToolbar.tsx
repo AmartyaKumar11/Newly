@@ -110,7 +110,6 @@ export function TextFloatingToolbar() {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [recentColors, setRecentColors] = useState<string[]>(getRecentColors());
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showEffects, setShowEffects] = useState(false);
   const [showTextCaseMenu, setShowTextCaseMenu] = useState(false);
   const [showPositionMenu, setShowPositionMenu] = useState(false);
   const [showSpacingPanel, setShowSpacingPanel] = useState(false);
@@ -624,16 +623,23 @@ export function TextFloatingToolbar() {
         {/* Divider */}
         <div className="h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
-        {/* 9. Effects Button - Opens effects panel in sidebar */}
+        {/* 9. Effects Button - Opens effects panel */}
         <button
-          onClick={() => {
-            // Effects are handled in the sidebar TextProperties panel
-            // This button could scroll to effects section or show a tooltip
-            // For now, just a placeholder that doesn't break functionality
-            setShowEffects(false);
+          onClick={(e) => {
+            e.stopPropagation();
+            if (selectedBlock) {
+              // Dispatch event to open effects panel
+              window.dispatchEvent(new CustomEvent("open-text-effects-panel", {
+                detail: { blockId: selectedBlock.id }
+              }));
+            }
           }}
-          className="flex h-7 cursor-pointer items-center gap-1 rounded px-2 text-xs text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          title="Text effects (see sidebar)"
+          className={`flex h-7 cursor-pointer items-center gap-1 rounded px-2 text-xs transition ${
+            styles.textEffect && styles.textEffect.type !== "none"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+              : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          }`}
+          title="Text effects"
         >
           Effects
         </button>
@@ -664,12 +670,6 @@ export function TextFloatingToolbar() {
         <div
           className="fixed inset-0 z-[99] cursor-pointer"
           onClick={() => setShowColorPicker(false)}
-        />
-      )}
-      {showEffects && (
-        <div
-          className="fixed inset-0 z-[99] cursor-pointer"
-          onClick={() => setShowEffects(false)}
         />
       )}
       {showTextCaseMenu && (

@@ -12,24 +12,30 @@ export interface Size {
   height: number;
 }
 
-export interface TextEffects {
-  shadow?: {
-    enabled: boolean;
+/**
+ * Text Effect Configuration
+ * Single-effect system: only one effect active at a time
+ * Preset-based, non-destructive, schema-driven
+ */
+export interface TextEffect {
+  type:
+    | "none"
+    | "shadow"
+    | "lift"
+    | "hollow"
+    | "outline"
+    | "echo"
+    | "glitch"
+    | "neon"
+    | "background";
+  
+  config?: {
+    // Effect-specific, optional configuration
+    color?: string;
+    intensity?: number; // 0-100, default varies by effect
     offsetX?: number; // px, default 0
     offsetY?: number; // px, default 0
-    blur?: number; // px, default 0
-    color?: string; // default "#000000"
-    opacity?: number; // 0-1, default 0.5
-  };
-  outline?: {
-    enabled: boolean;
-    width?: number; // px, default 1
-    color?: string; // default "#000000"
-  };
-  highlight?: {
-    enabled: boolean;
-    color?: string; // default "#ffff00"
-    opacity?: number; // 0-1, default 0.3
+    blur?: number; // px, default varies by effect
   };
 }
 
@@ -51,7 +57,7 @@ export interface BlockStyles {
   lineHeight?: number; // Relative multiplier (e.g. 1.2-2.5), default 1.4
   letterSpacing?: number; // Character spacing in px (range -1 to 10), default 0
   verticalAlign?: "top" | "center" | "bottom"; // Vertical alignment inside box, default "top"
-  effects?: TextEffects; // Non-destructive text effects (shadow, outline, highlight)
+  textEffect?: TextEffect; // Single-effect system (preset-based, non-destructive)
   // Image specific
   objectFit?: "cover" | "contain" | "fill" | "none";
 }

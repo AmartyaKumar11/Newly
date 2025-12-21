@@ -13,6 +13,7 @@ import { EditorPropertiesPanel } from "./EditorPropertiesPanel";
 import { AIPanel } from "./AIPanel";
 import { TextFloatingToolbar } from "./TextFloatingToolbar";
 import { PositionSidebarWrapper } from "./PositionSidebarWrapper";
+import { TextEffectsPanelWrapper } from "./TextEffectsPanelWrapper";
 
 interface Newsletter {
   _id: string;
@@ -320,6 +321,9 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
 
         {/* Position Sidebar */}
         <PositionSidebarWrapper />
+
+        {/* Text Effects Panel */}
+        <TextEffectsPanelWrapper />
 
         {/* AI Panel */}
         <AIPanel

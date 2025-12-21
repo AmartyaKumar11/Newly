@@ -1,215 +1,156 @@
 "use client";
 
-import type { TextBlock } from "@/types/blocks";
+import type { TextBlock, TextEffect } from "@/types/blocks";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 
 interface TextEffectsPanelProps {
   block: TextBlock;
 }
 
+// Preset effect definitions
+const EFFECT_PRESETS: Array<{
+  type: TextEffect["type"];
+  label: string;
+  preview: string; // Simple text preview
+}> = [
+  { type: "none", label: "None", preview: "Aa" },
+  { type: "shadow", label: "Shadow", preview: "Aa" },
+  { type: "lift", label: "Lift", preview: "Aa" },
+  { type: "hollow", label: "Hollow", preview: "Aa" },
+  { type: "outline", label: "Outline", preview: "Aa" },
+  { type: "echo", label: "Echo", preview: "Aa" },
+  { type: "glitch", label: "Glitch", preview: "Aa" },
+  { type: "neon", label: "Neon", preview: "Aa" },
+  { type: "background", label: "Background", preview: "Aa" },
+];
+
 export function TextEffectsPanel({ block }: TextEffectsPanelProps) {
   const { updateBlockStyles } = useEditorStateStore();
-  const effects = block.styles.effects || {};
+  const currentEffect = block.styles.textEffect?.type || "none";
 
-  const updateEffects = (updates: Partial<typeof effects>) => {
+  const handleEffectSelect = (effectType: TextEffect["type"]) => {
+    // Create the new effect object
+    const newEffect: TextEffect = effectType === "none" 
+      ? { type: "none" }
+      : { type: effectType };
+
+    // Update through store (creates one undo step automatically)
     updateBlockStyles(block.id, {
-      effects: { ...effects, ...updates },
+      textEffect: newEffect,
     });
   };
 
+  // Get preview style for each preset
+  const getPreviewStyle = (effectType: TextEffect["type"]): React.CSSProperties => {
+    const baseStyle: React.CSSProperties = {
+      fontSize: "18px",
+      fontWeight: "600",
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "#000000",
+    };
+
+    switch (effectType) {
+      case "none":
+        return baseStyle;
+      case "shadow":
+        return {
+          ...baseStyle,
+          textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
+        };
+      case "lift":
+        return {
+          ...baseStyle,
+          textShadow: "0 -3px 8px rgba(0,0,0,0.3)",
+        };
+      case "hollow":
+        return {
+          ...baseStyle,
+          color: "transparent",
+          WebkitTextStroke: "2px #000000",
+        };
+      case "outline":
+        return {
+          ...baseStyle,
+          WebkitTextStroke: "2px #000000",
+        };
+      case "echo":
+        return {
+          ...baseStyle,
+          textShadow: "2px 2px 0 rgba(0,0,0,0.4)",
+        };
+      case "glitch":
+        return {
+          ...baseStyle,
+          textShadow: "2px 0 0 #ff0000, -2px 0 0 #00ffff",
+        };
+      case "neon":
+        return {
+          ...baseStyle,
+          color: "#00ffff",
+          textShadow: "0 0 8px #00ffff, 0 0 12px #00ffff",
+        };
+      case "background":
+        return {
+          ...baseStyle,
+          backgroundColor: "#ffff00",
+          opacity: 0.3,
+          padding: "2px 8px",
+          borderRadius: "4px",
+        };
+      default:
+        return baseStyle;
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Text Effects</h3>
+      
+      {/* Preset Grid */}
+      <div className="grid grid-cols-3 gap-2">
+        {EFFECT_PRESETS.map((preset) => {
+          const isActive = currentEffect === preset.type;
+          return (
+            <button
+              key={preset.type}
+              onClick={() => handleEffectSelect(preset.type)}
+              className={`relative flex h-16 flex-col items-center justify-center rounded-lg border-2 transition cursor-pointer ${
+                isActive
+                  ? "border-blue-600 bg-blue-50 dark:border-blue-500 dark:bg-blue-950/20"
+                  : "border-zinc-300 bg-white hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-zinc-600"
+              }`}
+              title={preset.label}
+            >
+              {/* Preview */}
+              <div
+                style={getPreviewStyle(preset.type)}
+                className="pointer-events-none"
+              >
+                {preset.preview}
+              </div>
+              
+              {/* Label */}
+              <span
+                className={`mt-1 text-xs font-medium ${
+                  isActive
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-zinc-600 dark:text-zinc-400"
+                }`}
+              >
+                {preset.label}
+              </span>
 
-      {/* Shadow Effect */}
-      <div className="space-y-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Shadow</label>
-          <input
-            type="checkbox"
-            checked={effects.shadow?.enabled || false}
-            onChange={(e) =>
-              updateEffects({
-                shadow: {
-                  ...effects.shadow,
-                  enabled: e.target.checked,
-                  offsetX: effects.shadow?.offsetX ?? 2,
-                  offsetY: effects.shadow?.offsetY ?? 2,
-                  blur: effects.shadow?.blur ?? 4,
-                  color: effects.shadow?.color ?? "#000000",
-                  opacity: effects.shadow?.opacity ?? 0.5,
-                },
-              })
-            }
-            className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600"
-          />
-        </div>
-        {effects.shadow?.enabled && (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Offset X</label>
-              <input
-                type="number"
-                value={effects.shadow.offsetX ?? 2}
-                onChange={(e) =>
-                  updateEffects({
-                    shadow: { ...effects.shadow!, offsetX: parseInt(e.target.value) || 0 },
-                  })
-                }
-                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Offset Y</label>
-              <input
-                type="number"
-                value={effects.shadow.offsetY ?? 2}
-                onChange={(e) =>
-                  updateEffects({
-                    shadow: { ...effects.shadow!, offsetY: parseInt(e.target.value) || 0 },
-                  })
-                }
-                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Blur</label>
-              <input
-                type="number"
-                value={effects.shadow.blur ?? 4}
-                onChange={(e) =>
-                  updateEffects({
-                    shadow: { ...effects.shadow!, blur: parseInt(e.target.value) || 0 },
-                  })
-                }
-                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-                min="0"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Color</label>
-              <input
-                type="color"
-                value={effects.shadow.color || "#000000"}
-                onChange={(e) =>
-                  updateEffects({
-                    shadow: { ...effects.shadow!, color: e.target.value },
-                  })
-                }
-                className="h-8 w-full rounded border border-zinc-300 dark:border-zinc-700"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Outline Effect */}
-      <div className="space-y-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Outline</label>
-          <input
-            type="checkbox"
-            checked={effects.outline?.enabled || false}
-            onChange={(e) =>
-              updateEffects({
-                outline: {
-                  ...effects.outline,
-                  enabled: e.target.checked,
-                  width: effects.outline?.width ?? 1,
-                  color: effects.outline?.color ?? "#000000",
-                },
-              })
-            }
-            className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600"
-          />
-        </div>
-        {effects.outline?.enabled && (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Width</label>
-              <input
-                type="number"
-                value={effects.outline.width ?? 1}
-                onChange={(e) =>
-                  updateEffects({
-                    outline: { ...effects.outline!, width: parseInt(e.target.value) || 1 },
-                  })
-                }
-                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-                min="1"
-                max="10"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Color</label>
-              <input
-                type="color"
-                value={effects.outline.color || "#000000"}
-                onChange={(e) =>
-                  updateEffects({
-                    outline: { ...effects.outline!, color: e.target.value },
-                  })
-                }
-                className="h-8 w-full rounded border border-zinc-300 dark:border-zinc-700"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Highlight Effect */}
-      <div className="space-y-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Highlight</label>
-          <input
-            type="checkbox"
-            checked={effects.highlight?.enabled || false}
-            onChange={(e) =>
-              updateEffects({
-                highlight: {
-                  ...effects.highlight,
-                  enabled: e.target.checked,
-                  color: effects.highlight?.color ?? "#ffff00",
-                  opacity: effects.highlight?.opacity ?? 0.3,
-                },
-              })
-            }
-            className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-600"
-          />
-        </div>
-        {effects.highlight?.enabled && (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Color</label>
-              <input
-                type="color"
-                value={effects.highlight.color || "#ffff00"}
-                onChange={(e) =>
-                  updateEffects({
-                    highlight: { ...effects.highlight!, color: e.target.value },
-                  })
-                }
-                className="h-8 w-full rounded border border-zinc-300 dark:border-zinc-700"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Opacity</label>
-              <input
-                type="number"
-                step="0.1"
-                value={effects.highlight.opacity ?? 0.3}
-                onChange={(e) =>
-                  updateEffects({
-                    highlight: { ...effects.highlight!, opacity: parseFloat(e.target.value) || 0 },
-                  })
-                }
-                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-                min="0"
-                max="1"
-              />
-            </div>
-          </div>
-        )}
+              {/* Active indicator */}
+              {isActive && (
+                <div className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
