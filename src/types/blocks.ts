@@ -98,6 +98,12 @@ export interface ImageBlock extends BaseBlock {
 export interface ShapeBlock extends BaseBlock {
   type: "shape";
   shapeType: "rectangle";
+  /**
+   * Optional identifier of an SVG-based shape from the shapes registry.
+   * When present, the shape renderer can load the corresponding SVG
+   * from `/public/shapes` without changing layout geometry.
+   */
+  shapeId?: string;
 }
 
 /**
