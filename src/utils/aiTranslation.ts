@@ -41,6 +41,7 @@ import {
   MIN_BLOCK_SIZE,
   MAX_BLOCK_SIZE,
 } from "@/types/aiOutputSchema";
+import { shapesRegistry } from "@/lib/shapes/shapesRegistry";
 
 // ============================================================================
 // Types
@@ -413,13 +414,58 @@ function validateBlockContent(
       }
     }
   } else if (type === "shape") {
-    const shapeContent = content as Partial<AIShapeContent>;
+    const shapeContent = content as Partial<AIShapeContent> & Record<string, unknown>;
     if (shapeContent.shapeType !== "rectangle") {
       errors.push({
         type: "hard",
         message: `Shape type must be "rectangle"`,
         field: `blocks[${index}].content.shapeType`,
       });
+    }
+
+    // AI safety: Shapes may only reference pre-registered shapes by shapeId.
+    // shapeId (when present) MUST exist in shapesRegistry.
+    if ("shapeId" in shapeContent && shapeContent.shapeId !== undefined) {
+      if (typeof shapeContent.shapeId !== "string" || shapeContent.shapeId.trim() === "") {
+        errors.push({
+          type: "hard",
+          message: `shapeId must be a non-empty string when provided`,
+          field: `blocks[${index}].content.shapeId`,
+        });
+      } else {
+        const shapeId = shapeContent.shapeId.trim();
+        const exists = shapesRegistry.some((entry) => entry.id === shapeId);
+        if (!exists) {
+          errors.push({
+            type: "hard",
+            message: `shapeId "${shapeId}" does not exist in shapesRegistry`,
+            field: `blocks[${index}].content.shapeId`,
+          });
+        }
+      }
+    }
+
+    // AI safety: forbid raw SVG / path payloads in shape content.
+    // The only allowed field today is `shapeType` (and optional `shapeId`).
+    const forbiddenShapePayloadKeys = [
+      "svg",
+      "svgMarkup",
+      "rawSvg",
+      "paths",
+      "path",
+      "d",
+      "viewBox",
+      "xmlns",
+      "innerHTML",
+    ];
+    for (const key of forbiddenShapePayloadKeys) {
+      if (key in shapeContent && shapeContent[key] !== undefined) {
+        errors.push({
+          type: "hard",
+          message: `Shape content must not include raw SVG or path data ("${key}")`,
+          field: `blocks[${index}].content.${key}`,
+        });
+      }
     }
   } else if (type === "container") {
     const containerContent = content as Partial<AIContainerContent>;
@@ -878,10 +924,18 @@ function translateBlock(
       if (shapeContent.shapeType !== "rectangle") {
         return null; // Should not happen after validation
       }
+
+      // Optional shapeId from AI (already validated against shapesRegistry in validateBlockContent)
+      const contentWithShapeId = aiBlock.content as AIShapeContent & { shapeId?: string };
+      const shapeId = typeof contentWithShapeId.shapeId === "string"
+        ? contentWithShapeId.shapeId.trim()
+        : undefined;
+
       const block: ShapeBlock = {
         id: realId,
         type: "shape",
         shapeType: "rectangle",
+        shapeId,
         position,
         size,
         styles,
