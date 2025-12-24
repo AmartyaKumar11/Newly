@@ -4,7 +4,7 @@ import { useRef, useEffect } from "react";
 import type { Block } from "@/types/blocks";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { BlockRenderer } from "./BlockRenderer";
-import { isTextBlock } from "@/types/blocks";
+import { calculateResize, type ResizeHandle } from "@/utils/blockResize";
 
 // Canvas bounds
 const CANVAS_WIDTH = 600;
@@ -27,6 +27,8 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
     getBlock,
     updateBlockStyles,
     blocks,
+    startActionGroup,
+    endActionGroup,
   } = useEditorStateStore();
 
   const isSelected = block.id === selectedBlockId;
@@ -34,7 +36,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
   const blockRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const resizeStartRef = useRef<{ width: number; height: number; x: number; y: number } | null>(null);
-  const resizeHandleRef = useRef<"se" | "sw" | "ne" | "nw" | "e" | "w" | "n" | "s" | null>(null);
+  const resizeHandleRef = useRef<ResizeHandle | null>(null);
 
   // Handle drag start
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -55,10 +57,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
   };
 
   // Handle resize start
-  const handleResizeMouseDown = (
-    e: React.MouseEvent,
-    handle: "se" | "sw" | "ne" | "nw" | "e" | "w" | "n" | "s"
-  ) => {
+  const handleResizeMouseDown = (e: React.MouseEvent, handle: ResizeHandle) => {
     e.stopPropagation();
     selectBlock(block.id);
 
@@ -70,6 +69,8 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
       y: e.clientY,
     };
 
+    // Start action group to batch all resize updates into one undo step
+    startActionGroup();
     setEditorMode("resizing");
   };
 
@@ -152,89 +153,46 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
         const deltaX = e.clientX - resizeStartRef.current.x;
         const deltaY = e.clientY - resizeStartRef.current.y;
 
-        let newWidth = resizeStartRef.current.width;
-        let newHeight = resizeStartRef.current.height;
-        let newX = currentBlock.position.x;
-        let newY = currentBlock.position.y;
+        // Check for modifier key (Shift = free resize for images)
+        const allowFreeResize = e.shiftKey;
 
-        // Handle different resize handles
-        switch (resizeHandleRef.current) {
-          case "se": // Southeast (bottom-right)
-            newWidth = Math.max(50, Math.min(resizeStartRef.current.width + deltaX, CANVAS_WIDTH - currentBlock.position.x));
-            newHeight = Math.max(50, Math.min(resizeStartRef.current.height + deltaY, CANVAS_HEIGHT - currentBlock.position.y));
-            break;
-          case "sw": // Southwest (bottom-left)
-            newWidth = Math.max(50, Math.min(resizeStartRef.current.width - deltaX, currentBlock.position.x + currentBlock.size.width));
-            newHeight = Math.max(50, Math.min(resizeStartRef.current.height + deltaY, CANVAS_HEIGHT - currentBlock.position.y));
-            newX = currentBlock.position.x + (currentBlock.size.width - newWidth);
-            break;
-          case "ne": // Northeast (top-right)
-            newWidth = Math.max(50, Math.min(resizeStartRef.current.width + deltaX, CANVAS_WIDTH - currentBlock.position.x));
-            newHeight = Math.max(50, Math.min(resizeStartRef.current.height - deltaY, currentBlock.position.y + currentBlock.size.height));
-            newY = currentBlock.position.y + (currentBlock.size.height - newHeight);
-            break;
-          case "nw": // Northwest (top-left)
-            newWidth = Math.max(50, Math.min(resizeStartRef.current.width - deltaX, currentBlock.position.x + currentBlock.size.width));
-            newHeight = Math.max(50, Math.min(resizeStartRef.current.height - deltaY, currentBlock.position.y + currentBlock.size.height));
-            newX = currentBlock.position.x + (currentBlock.size.width - newWidth);
-            newY = currentBlock.position.y + (currentBlock.size.height - newHeight);
-            break;
-          case "e": // East (right side) - horizontal resize only
-            newWidth = Math.max(
-              50,
-              Math.min(resizeStartRef.current.width + deltaX, CANVAS_WIDTH - currentBlock.position.x)
-            );
-            break;
-          case "w": // West (left side) - horizontal resize only
-            newWidth = Math.max(
-              50,
-              Math.min(resizeStartRef.current.width - deltaX, currentBlock.position.x + currentBlock.size.width)
-            );
-            newX = currentBlock.position.x + (currentBlock.size.width - newWidth);
-            break;
-          case "s": // South (bottom side) - vertical resize only
-            newHeight = Math.max(
-              50,
-              Math.min(resizeStartRef.current.height + deltaY, CANVAS_HEIGHT - currentBlock.position.y)
-            );
-            break;
-          case "n": // North (top side) - vertical resize only
-            newHeight = Math.max(
-              50,
-              Math.min(resizeStartRef.current.height - deltaY, currentBlock.position.y + currentBlock.size.height)
-            );
-            newY = currentBlock.position.y + (currentBlock.size.height - newHeight);
-            break;
-        }
-
-        // Constrain position
-        newX = Math.max(0, Math.min(newX, CANVAS_WIDTH - newWidth));
-        newY = Math.max(0, Math.min(newY, CANVAS_HEIGHT - newHeight));
+        // Use block-type-specific resize logic
+        const resizeResult = calculateResize({
+          block: currentBlock,
+          handle: resizeHandleRef.current,
+          deltaX,
+          deltaY,
+          startWidth: resizeStartRef.current.width,
+          startHeight: resizeStartRef.current.height,
+          startX: currentBlock.position.x,
+          startY: currentBlock.position.y,
+          allowFreeResize,
+        });
 
         // CRITICAL: Resize logic is geometry-only (box-driven sizing)
         // - Updates ONLY block.size.width and block.size.height
         // - NEVER modifies block.styles.fontSize
         // - NEVER uses transform: scale
-        // - Works identically for all block types (text, image, shape)
+        // - Block-type-specific rules applied via calculateResize utility
         // 
-        // Defensive guard: Prevent any font size changes during resize
-        // This ensures text blocks behave like image/shape blocks (geometry-only)
-        // Text content wraps/reflows within the fixed bounding box
-        if (isTextBlock(currentBlock)) {
-          // Explicitly ensure fontSize is NOT modified during resize
-          // Font size remains constant; text wraps within the resized box
-          // Overflow detection will handle visual indication if needed
-        }
+        // Text blocks: Free resize, font size unchanged, text reflows
+        // Image blocks: Aspect ratio preserved on corners (unless Shift), free on edges
+        // Shape blocks: Free resize, no aspect ratio lock
 
         // Apply resize (geometry-only, no style mutations)
-        resizeBlock(block.id, { width: newWidth, height: newHeight });
-        if (newX !== currentBlock.position.x || newY !== currentBlock.position.y) {
-          moveBlock(block.id, { x: newX, y: newY });
+        resizeBlock(block.id, { width: resizeResult.width, height: resizeResult.height });
+        if (resizeResult.x !== currentBlock.position.x || resizeResult.y !== currentBlock.position.y) {
+          moveBlock(block.id, { x: resizeResult.x, y: resizeResult.y });
         }
       }
     };
 
     const handleMouseUp = () => {
+      // End action group if we were resizing (batches all resize updates into one undo step)
+      if (editorMode === "resizing") {
+        endActionGroup();
+      }
+
       dragStartRef.current = null;
       resizeStartRef.current = null;
       resizeHandleRef.current = null;
@@ -250,7 +208,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [editorMode, isSelected, block.id, moveBlock, resizeBlock, getBlock, setEditorMode, blocks]);
+  }, [editorMode, isSelected, block.id, moveBlock, resizeBlock, getBlock, setEditorMode, blocks, startActionGroup, endActionGroup]);
 
   return (
     <div
