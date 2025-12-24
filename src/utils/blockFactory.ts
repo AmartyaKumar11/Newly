@@ -62,9 +62,6 @@ export function createImageBlock(
 ): ImageBlock {
   const finalSize = size || { width: 200, height: 200 };
   
-  // Debug: Log the size being used
-  console.log("[createImageBlock] Creating image block with size:", finalSize);
-  
   return {
     id: generateId(),
     type: "image",

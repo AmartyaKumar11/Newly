@@ -5,7 +5,7 @@ import { useEditorStateStore } from "@/stores/editorStateStore";
 import { createTextBlock, createImageBlock, createShapeBlock, getNextZIndex } from "@/utils/blockFactory";
 import { UploadsSidebar } from "./UploadsSidebar";
 import type { Asset } from "@/hooks/useAssets";
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from "./EditorCanvasWrapper";
+import { assetToImageBlock } from "@/utils/assetToBlock";
 
 type TabType = "text" | "elements" | "images" | "uploads";
 
@@ -43,62 +43,25 @@ export function EditorSidebar() {
     }
   };
 
+  /**
+   * Insert an asset into the canvas at the center.
+   * 
+   * Architecture:
+   * - Uses pure utility function (assetToImageBlock) for translation
+   * - Single undo step (addBlock automatically creates one)
+   * - zIndex calculated deterministically
+   * - No side effects outside editor store
+   */
   const handleInsertAsset = (asset: Asset) => {
-    // Insert a single image block at the visual center of the canvas.
     const allBlocks = getBlocksByZIndex();
     
-    // Use actual image dimensions if available, otherwise fall back to defaults
-    let imageWidth = asset.width ?? 200;
-    let imageHeight = asset.height ?? 200;
+    // Convert asset to image block (pure function, no side effects)
+    const newBlock = assetToImageBlock(asset);
     
-    // Debug: Log the asset dimensions
-    console.log("[handleInsertAsset] Asset dimensions:", {
-      assetWidth: asset.width,
-      assetHeight: asset.height,
-      initialWidth: imageWidth,
-      initialHeight: imageHeight,
-    });
-    
-    // Scale down large images to fit within canvas bounds while maintaining aspect ratio
-    const maxWidth = CANVAS_WIDTH * 0.9; // 90% of canvas width
-    const maxHeight = CANVAS_HEIGHT * 0.9; // 90% of canvas height
-    
-    if (imageWidth > maxWidth || imageHeight > maxHeight) {
-      const scaleX = maxWidth / imageWidth;
-      const scaleY = maxHeight / imageHeight;
-      const scale = Math.min(scaleX, scaleY); // Use the smaller scale to fit both dimensions
-      
-      imageWidth = Math.round(imageWidth * scale);
-      imageHeight = Math.round(imageHeight * scale);
-    }
-    
-    // Center the image on the canvas
-    const x = (CANVAS_WIDTH - imageWidth) / 2;
-    const y = (CANVAS_HEIGHT - imageHeight) / 2;
-
-    console.log("[handleInsertAsset] Creating block with dimensions:", {
-      width: imageWidth,
-      height: imageHeight,
-      x,
-      y,
-    });
-
-    const newBlock = createImageBlock(
-      asset.url,
-      { x, y },
-      { width: imageWidth, height: imageHeight }
-    );
-    
-    // Debug: Verify the block was created with correct size
-    console.log("[handleInsertAsset] Block created:", {
-      blockId: newBlock.id,
-      blockSize: newBlock.size,
-      blockPosition: newBlock.position,
-    });
-    
-    // Use "cover" so resizing crops the image instead of scaling it
-    newBlock.styles.objectFit = "cover";
+    // Set zIndex to appear above existing blocks
     newBlock.zIndex = getNextZIndex(allBlocks);
+    
+    // Insert via editor store (creates one undo step automatically)
     addBlock(newBlock);
   };
 
@@ -307,7 +270,18 @@ export function EditorSidebar() {
             )}
 
             {activeTab === "uploads" && (
-              <UploadsSidebar onInsertAsset={handleInsertAsset} />
+              <UploadsSidebar
+                onInsertAsset={handleInsertAsset}
+                onDragStart={(asset, event) => {
+                  // Store asset data for drop handler
+                  event.dataTransfer.effectAllowed = "copy";
+                  event.dataTransfer.setData("application/x-asset-id", asset.id);
+                  // Dispatch custom event for canvas to listen
+                  window.dispatchEvent(
+                    new CustomEvent("asset-drag-start", { detail: { asset } })
+                  );
+                }}
+              />
             )}
             </div>
           </div>

@@ -5,9 +5,10 @@ import { useAssets, type Asset } from "@/hooks/useAssets";
 
 interface UploadsSidebarProps {
   onInsertAsset?: (asset: Asset) => void;
+  onDragStart?: (asset: Asset, event: React.DragEvent) => void;
 }
 
-export function UploadsSidebar({ onInsertAsset }: UploadsSidebarProps) {
+export function UploadsSidebar({ onInsertAsset, onDragStart }: UploadsSidebarProps) {
   const { assets, loading, uploading, error, uploadFiles, refresh } = useAssets();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -111,7 +112,9 @@ export function UploadsSidebar({ onInsertAsset }: UploadsSidebarProps) {
                 type="button"
                 key={asset.id}
                 onClick={onInsertAsset ? () => onInsertAsset(asset) : undefined}
-                className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900 focus:outline-none"
+                draggable={!!onDragStart}
+                onDragStart={onDragStart ? (e) => onDragStart(asset, e) : undefined}
+                className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900 focus:outline-none cursor-pointer"
               >
                 <div className="relative block w-full pb-[75%]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -119,6 +122,7 @@ export function UploadsSidebar({ onInsertAsset }: UploadsSidebarProps) {
                     src={asset.url}
                     alt="Asset"
                     className="absolute inset-0 h-full w-full object-cover"
+                    draggable={false}
                   />
                 </div>
               </button>

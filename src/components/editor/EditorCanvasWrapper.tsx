@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { DraggableBlock } from "./blocks/DraggableBlock";
 import { AlignmentGuides } from "./AlignmentGuides";
+import { assetToImageBlock, calculateDropPosition } from "@/utils/assetToBlock";
+import { getNextZIndex } from "@/utils/blockFactory";
+import type { Asset } from "@/hooks/useAssets";
 
 // Fixed canvas size for newsletter (standard email width)
 export const CANVAS_WIDTH = 600;
@@ -24,10 +27,15 @@ export function EditorCanvasWrapper() {
     setZoomLevel,
     editorMode,
     getBlock,
+    addBlock,
+    getBlocksByZIndex,
   } = useEditorStateStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [isDragOver, setIsDragOver] = useState(false);
+  const draggedAssetRef = useRef<Asset | null>(null);
 
   const sortedBlocks = blocks.sort((a, b) => a.zIndex - b.zIndex);
 
@@ -134,6 +142,75 @@ export function EditorCanvasWrapper() {
     }
   };
 
+  // Drag-and-drop handlers for asset insertion
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    // Check if this is an asset drag (has asset data)
+    if (e.dataTransfer.types.includes("application/x-asset-id")) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    // Only set drag over to false if we're leaving the canvas element itself
+    if (e.currentTarget === e.target) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+
+      // Check if this is an asset drop
+      const assetId = e.dataTransfer.getData("application/x-asset-id");
+      if (!assetId || !draggedAssetRef.current) {
+        return;
+      }
+
+      const asset = draggedAssetRef.current;
+      draggedAssetRef.current = null;
+
+      // Get canvas bounding rect to calculate drop position
+      const canvasRect = canvasRef.current?.getBoundingClientRect();
+      if (!canvasRect) return;
+
+      // Calculate drop position relative to canvas (accounting for zoom)
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      const relativeX = (clientX - canvasRect.left) / zoomLevel;
+      const relativeY = (clientY - canvasRect.top) / zoomLevel;
+
+      // Convert asset to image block with drop position
+      const allBlocks = getBlocksByZIndex();
+      const size = assetToImageBlock(asset).size; // Get calculated size
+      const position = calculateDropPosition(relativeX, relativeY, size);
+      const newBlock = assetToImageBlock(asset, position, size);
+
+      // Set zIndex to appear above existing blocks
+      newBlock.zIndex = getNextZIndex(allBlocks);
+
+      // Insert via editor store (creates one undo step automatically)
+      addBlock(newBlock);
+    },
+    [zoomLevel, getBlocksByZIndex, addBlock]
+  );
+
+  // Listen for asset drag start events from UploadsSidebar
+  useEffect(() => {
+    const handleAssetDragStart = (event: CustomEvent<{ asset: Asset }>) => {
+      draggedAssetRef.current = event.detail.asset;
+    };
+
+    window.addEventListener("asset-drag-start", handleAssetDragStart as EventListener);
+    return () => {
+      window.removeEventListener("asset-drag-start", handleAssetDragStart as EventListener);
+    };
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -151,9 +228,15 @@ export function EditorCanvasWrapper() {
       >
         {/* Canvas area */}
         <div
+          ref={canvasRef}
           data-canvas-element
           onClick={handleCanvasClick}
-          className="relative rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`relative rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${
+            isDragOver ? "ring-2 ring-blue-500 ring-offset-2" : ""
+          }`}
           style={{
             width: `${CANVAS_WIDTH}px`,
             height: `${CANVAS_HEIGHT}px`,
