@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import Asset from "@/models/Asset";
 import { getSupabaseClient } from "@/services/storage";
+import sharp from "sharp";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/svg+xml"];
@@ -73,6 +74,20 @@ export async function POST(request: Request) {
       .toString(36)
       .slice(2)}.${extension}`;
 
+    // Extract image dimensions (skip for SVG)
+    let imageWidth: number | null = null;
+    let imageHeight: number | null = null;
+    if (file.type !== "image/svg+xml") {
+      try {
+        const metadata = await sharp(buffer).metadata();
+        imageWidth = metadata.width ?? null;
+        imageHeight = metadata.height ?? null;
+      } catch (error) {
+        console.warn("[Asset upload] Failed to extract image dimensions", error);
+        // Continue with null dimensions if extraction fails
+      }
+    }
+
     const { data, error } = await supabase.storage
       .from("uploads")
       .upload(fileName, buffer, {
@@ -132,8 +147,8 @@ export async function POST(request: Request) {
       userId: session.user.id,
       type: "image",
       url: publicUrlData.publicUrl,
-      width: null,
-      height: null,
+      width: imageWidth,
+      height: imageHeight,
     });
 
     uploaded.push({

@@ -46,12 +46,58 @@ export function EditorSidebar() {
   const handleInsertAsset = (asset: Asset) => {
     // Insert a single image block at the visual center of the canvas.
     const allBlocks = getBlocksByZIndex();
-    const defaultWidth = 200;
-    const defaultHeight = 200;
-    const x = (CANVAS_WIDTH - defaultWidth) / 2;
-    const y = (CANVAS_HEIGHT - defaultHeight) / 2;
+    
+    // Use actual image dimensions if available, otherwise fall back to defaults
+    let imageWidth = asset.width ?? 200;
+    let imageHeight = asset.height ?? 200;
+    
+    // Debug: Log the asset dimensions
+    console.log("[handleInsertAsset] Asset dimensions:", {
+      assetWidth: asset.width,
+      assetHeight: asset.height,
+      initialWidth: imageWidth,
+      initialHeight: imageHeight,
+    });
+    
+    // Scale down large images to fit within canvas bounds while maintaining aspect ratio
+    const maxWidth = CANVAS_WIDTH * 0.9; // 90% of canvas width
+    const maxHeight = CANVAS_HEIGHT * 0.9; // 90% of canvas height
+    
+    if (imageWidth > maxWidth || imageHeight > maxHeight) {
+      const scaleX = maxWidth / imageWidth;
+      const scaleY = maxHeight / imageHeight;
+      const scale = Math.min(scaleX, scaleY); // Use the smaller scale to fit both dimensions
+      
+      imageWidth = Math.round(imageWidth * scale);
+      imageHeight = Math.round(imageHeight * scale);
+    }
+    
+    // Center the image on the canvas
+    const x = (CANVAS_WIDTH - imageWidth) / 2;
+    const y = (CANVAS_HEIGHT - imageHeight) / 2;
 
-    const newBlock = createImageBlock(asset.url, { x, y });
+    console.log("[handleInsertAsset] Creating block with dimensions:", {
+      width: imageWidth,
+      height: imageHeight,
+      x,
+      y,
+    });
+
+    const newBlock = createImageBlock(
+      asset.url,
+      { x, y },
+      { width: imageWidth, height: imageHeight }
+    );
+    
+    // Debug: Verify the block was created with correct size
+    console.log("[handleInsertAsset] Block created:", {
+      blockId: newBlock.id,
+      blockSize: newBlock.size,
+      blockPosition: newBlock.position,
+    });
+    
+    // Use "contain" to preserve aspect ratio and show full image
+    newBlock.styles.objectFit = "contain";
     newBlock.zIndex = getNextZIndex(allBlocks);
     addBlock(newBlock);
   };

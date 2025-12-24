@@ -57,17 +57,23 @@ export function createTextBlock(
 
 export function createImageBlock(
   src: string,
-  position = DEFAULT_POSITION
+  position = DEFAULT_POSITION,
+  size?: { width: number; height: number }
 ): ImageBlock {
+  const finalSize = size || { width: 200, height: 200 };
+  
+  // Debug: Log the size being used
+  console.log("[createImageBlock] Creating image block with size:", finalSize);
+  
   return {
     id: generateId(),
     type: "image",
     src,
     alt: "Image",
     position,
-    size: { width: 200, height: 200 },
+    size: finalSize,
     styles: {
-      objectFit: "cover",
+      objectFit: "contain", // Changed from "cover" to "contain" to preserve aspect ratio
       borderRadius: 0,
     },
     zIndex: 1,
