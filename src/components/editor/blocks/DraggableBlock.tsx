@@ -26,6 +26,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
     resizeBlock,
     getBlock,
     updateBlockStyles,
+    blocks,
   } = useEditorStateStore();
 
   const isSelected = block.id === selectedBlockId;
@@ -83,8 +84,59 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
         if (!canvasRect) return;
 
         // Calculate new position relative to canvas
-        const newX = e.clientX - canvasRect.left - dragStartRef.current.x;
-        const newY = e.clientY - canvasRect.top - dragStartRef.current.y;
+        let newX = e.clientX - canvasRect.left - dragStartRef.current.x;
+        let newY = e.clientY - canvasRect.top - dragStartRef.current.y;
+
+        // Apply snapping to alignment guides
+        const allBlocks = blocks;
+        const SNAP_THRESHOLD = 5;
+        const blockCenterX = newX + currentBlock.size.width / 2;
+        const blockCenterY = newY + currentBlock.size.height / 2;
+        const blockLeft = newX;
+        const blockRight = newX + currentBlock.size.width;
+        const blockTop = newY;
+        const blockBottom = newY + currentBlock.size.height;
+
+        // Canvas center snapping
+        const canvasCenterX = CANVAS_WIDTH / 2;
+        const canvasCenterY = CANVAS_HEIGHT / 2;
+
+        if (Math.abs(blockCenterX - canvasCenterX) <= SNAP_THRESHOLD) {
+          newX = canvasCenterX - currentBlock.size.width / 2;
+        }
+        if (Math.abs(blockCenterY - canvasCenterY) <= SNAP_THRESHOLD) {
+          newY = canvasCenterY - currentBlock.size.height / 2;
+        }
+
+        // Snap to other blocks
+        for (const otherBlock of allBlocks) {
+          if (otherBlock.id === currentBlock.id) continue;
+
+          const otherLeft = otherBlock.position.x;
+          const otherRight = otherBlock.position.x + otherBlock.size.width;
+          const otherTop = otherBlock.position.y;
+          const otherBottom = otherBlock.position.y + otherBlock.size.height;
+          const otherCenterX = otherBlock.position.x + otherBlock.size.width / 2;
+          const otherCenterY = otherBlock.position.y + otherBlock.size.height / 2;
+
+          // Vertical alignments
+          if (Math.abs(blockLeft - otherLeft) <= SNAP_THRESHOLD) {
+            newX = otherLeft;
+          } else if (Math.abs(blockRight - otherRight) <= SNAP_THRESHOLD) {
+            newX = otherRight - currentBlock.size.width;
+          } else if (Math.abs(blockCenterX - otherCenterX) <= SNAP_THRESHOLD) {
+            newX = otherCenterX - currentBlock.size.width / 2;
+          }
+
+          // Horizontal alignments
+          if (Math.abs(blockTop - otherTop) <= SNAP_THRESHOLD) {
+            newY = otherTop;
+          } else if (Math.abs(blockBottom - otherBottom) <= SNAP_THRESHOLD) {
+            newY = otherBottom - currentBlock.size.height;
+          } else if (Math.abs(blockCenterY - otherCenterY) <= SNAP_THRESHOLD) {
+            newY = otherCenterY - currentBlock.size.height / 2;
+          }
+        }
 
         // Constrain to canvas bounds
         const constrainedX = Math.max(0, Math.min(newX, CANVAS_WIDTH - currentBlock.size.width));
@@ -198,7 +250,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [editorMode, isSelected, block.id, moveBlock, resizeBlock, getBlock, setEditorMode]);
+  }, [editorMode, isSelected, block.id, moveBlock, resizeBlock, getBlock, setEditorMode, blocks]);
 
   return (
     <div

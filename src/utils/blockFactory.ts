@@ -73,7 +73,7 @@ export function createImageBlock(
     position,
     size: finalSize,
     styles: {
-      objectFit: "contain", // Changed from "cover" to "contain" to preserve aspect ratio
+      objectFit: "cover", // "cover" crops the image when resized, "contain" scales it
       borderRadius: 0,
     },
     zIndex: 1,

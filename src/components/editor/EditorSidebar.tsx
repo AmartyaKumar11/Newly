@@ -96,8 +96,8 @@ export function EditorSidebar() {
       blockPosition: newBlock.position,
     });
     
-    // Use "contain" to preserve aspect ratio and show full image
-    newBlock.styles.objectFit = "contain";
+    // Use "cover" so resizing crops the image instead of scaling it
+    newBlock.styles.objectFit = "cover";
     newBlock.zIndex = getNextZIndex(allBlocks);
     addBlock(newBlock);
   };

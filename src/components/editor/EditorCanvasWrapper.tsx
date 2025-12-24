@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { DraggableBlock } from "./blocks/DraggableBlock";
+import { AlignmentGuides } from "./AlignmentGuides";
 
 // Fixed canvas size for newsletter (standard email width)
 export const CANVAS_WIDTH = 600;
@@ -21,6 +22,8 @@ export function EditorCanvasWrapper() {
     canRedo,
     zoomLevel,
     setZoomLevel,
+    editorMode,
+    getBlock,
   } = useEditorStateStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -157,6 +160,15 @@ export function EditorCanvasWrapper() {
             minHeight: `${CANVAS_HEIGHT}px`,
           }}
         >
+          {/* Alignment guides - shown when dragging */}
+          {selectedBlockId && editorMode === "dragging" && (
+            <AlignmentGuides
+              draggingBlock={getBlock(selectedBlockId) || null}
+              allBlocks={blocks}
+              editorMode={editorMode}
+            />
+          )}
+
           {sortedBlocks.length === 0 ? (
             <div className="flex h-full items-center justify-center text-center">
               <div>
