@@ -1,0 +1,120 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { connectToDatabase } from "@/lib/db";
+import Asset from "@/models/Asset";
+import { getSupabaseClient } from "@/services/storage";
+
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/svg+xml"];
+
+export const runtime = "nodejs";
+
+// POST /api/assets/upload
+// Expects multipart/form-data with one or more `file` fields.
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const contentType = request.headers.get("content-type") || "";
+  if (!contentType.startsWith("multipart/form-data")) {
+    return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
+  }
+
+  const formData = await request.formData();
+  const files = formData.getAll("file").filter((f): f is File => f instanceof File);
+
+  if (files.length === 0) {
+    return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseClient();
+  await connectToDatabase();
+
+  const uploaded: Array<{
+    id: string;
+    url: string;
+    width: number | null;
+    height: number | null;
+    mimeType: string;
+    createdAt: Date;
+  }> = [];
+
+  for (const file of files) {
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { error: `Unsupported file type: ${file.type}` },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: `File too large. Max size is 5MB.` },
+        { status: 400 }
+      );
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const extension =
+      file.type === "image/jpeg"
+        ? "jpg"
+        : file.type === "image/png"
+        ? "png"
+        : file.type === "image/webp"
+        ? "webp"
+        : "svg";
+
+    const fileName = `${session.user.id}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${extension}`;
+
+    const { data, error } = await supabase.storage
+      .from("uploads")
+      .upload(fileName, buffer, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type,
+      });
+
+    if (error || !data?.path) {
+      return NextResponse.json(
+        { error: "Failed to upload file" },
+        { status: 500 }
+      );
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("uploads")
+      .getPublicUrl(data.path);
+
+    const assetDoc = await Asset.create({
+      userId: session.user.id,
+      type: "image",
+      url: publicUrlData.publicUrl,
+      width: null,
+      height: null,
+    });
+
+    uploaded.push({
+      id: assetDoc._id.toString(),
+      url: assetDoc.url,
+      width: assetDoc.width,
+      height: assetDoc.height,
+      mimeType: file.type,
+      createdAt: assetDoc.createdAt,
+    });
+  }
+
+  return NextResponse.json(
+    {
+      assets: uploaded,
+    },
+    { status: 201 }
+  );
+}
+
