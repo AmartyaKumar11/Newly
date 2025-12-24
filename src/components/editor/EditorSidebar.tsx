@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { createTextBlock, createImageBlock, createShapeBlock, getNextZIndex } from "@/utils/blockFactory";
 import { UploadsSidebar } from "./UploadsSidebar";
+import type { Asset } from "@/hooks/useAssets";
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "./EditorCanvasWrapper";
 
 type TabType = "text" | "elements" | "images" | "uploads";
 
@@ -39,6 +41,19 @@ export function EditorSidebar() {
       newBlock.zIndex = getNextZIndex(allBlocks);
       addBlock(newBlock);
     }
+  };
+
+  const handleInsertAsset = (asset: Asset) => {
+    // Insert a single image block at the visual center of the canvas.
+    const allBlocks = getBlocksByZIndex();
+    const defaultWidth = 200;
+    const defaultHeight = 200;
+    const x = (CANVAS_WIDTH - defaultWidth) / 2;
+    const y = (CANVAS_HEIGHT - defaultHeight) / 2;
+
+    const newBlock = createImageBlock(asset.url, { x, y });
+    newBlock.zIndex = getNextZIndex(allBlocks);
+    addBlock(newBlock);
   };
 
   const navItems: { id: TabType; label: string; icon: JSX.Element }[] = [
@@ -246,7 +261,7 @@ export function EditorSidebar() {
             )}
 
             {activeTab === "uploads" && (
-              <UploadsSidebar />
+              <UploadsSidebar onInsertAsset={handleInsertAsset} />
             )}
             </div>
           </div>

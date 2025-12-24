@@ -5,8 +5,8 @@ import { useEditorStateStore } from "@/stores/editorStateStore";
 import { DraggableBlock } from "./blocks/DraggableBlock";
 
 // Fixed canvas size for newsletter (standard email width)
-const CANVAS_WIDTH = 600;
-const CANVAS_HEIGHT = 800;
+export const CANVAS_WIDTH = 600;
+export const CANVAS_HEIGHT = 800;
 
 export function EditorCanvasWrapper() {
   const {

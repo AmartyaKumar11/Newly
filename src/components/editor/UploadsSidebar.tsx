@@ -1,9 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useAssets } from "@/hooks/useAssets";
+import { useAssets, type Asset } from "@/hooks/useAssets";
 
-export function UploadsSidebar() {
+interface UploadsSidebarProps {
+  onInsertAsset?: (asset: Asset) => void;
+}
+
+export function UploadsSidebar({ onInsertAsset }: UploadsSidebarProps) {
   const { assets, loading, uploading, error, uploadFiles, refresh } = useAssets();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -103,9 +107,11 @@ export function UploadsSidebar() {
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {assets.map((asset) => (
-              <div
+              <button
+                type="button"
                 key={asset.id}
-                className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                onClick={onInsertAsset ? () => onInsertAsset(asset) : undefined}
+                className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900 focus:outline-none"
               >
                 <div className="relative block w-full pb-[75%]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -115,7 +121,7 @@ export function UploadsSidebar() {
                     className="absolute inset-0 h-full w-full object-cover"
                   />
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
