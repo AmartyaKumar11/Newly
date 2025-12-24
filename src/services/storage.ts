@@ -6,7 +6,14 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.warn("Supabase credentials are not fully configured");
+  console.warn("[Supabase] Environment variables are not fully configured");
+} else {
+  // Debug-only: helps verify that env vars are wired correctly in dev.
+  // We intentionally log only a short prefix of the key to avoid leaking secrets.
+  console.log("[Supabase] Configuration loaded", {
+    url: supabaseUrl,
+    keyPrefix: supabaseKey.slice(0, 8) + "...",
+  });
 }
 
 export function getSupabaseClient() {

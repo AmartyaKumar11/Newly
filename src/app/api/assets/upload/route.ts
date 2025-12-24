@@ -82,15 +82,40 @@ export async function POST(request: Request) {
       });
 
     if (error || !data?.path) {
+      console.error("[Supabase upload error]", error ?? new Error("Missing upload path"), {
+        path: fileName,
+      });
+      
+      // Provide helpful error message for missing bucket
+      if (error?.statusCode === "404" || error?.message?.includes("Bucket not found")) {
+        return NextResponse.json(
+          { 
+            error: "Storage bucket 'uploads' not found. Please create it in your Supabase dashboard under Storage.",
+            details: "Go to Supabase Dashboard > Storage > Create a new bucket named 'uploads' (public access recommended)"
+          },
+          { status: 500 }
+        );
+      }
+      
       return NextResponse.json(
         { error: "Failed to upload file" },
         { status: 500 }
       );
     }
 
-    const { data: publicUrlData } = supabase.storage
+    const { data: publicUrlData, error: urlError } = supabase.storage
       .from("uploads")
       .getPublicUrl(data.path);
+
+    if (urlError || !publicUrlData?.publicUrl) {
+      console.error("[Supabase getPublicUrl error]", urlError ?? new Error("Missing publicUrl"), {
+        path: data.path,
+      });
+      return NextResponse.json(
+        { error: "Failed to generate public URL for uploaded file" },
+        { status: 500 }
+      );
+    }
 
     const assetDoc = await Asset.create({
       userId: session.user.id,
