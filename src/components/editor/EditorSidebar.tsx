@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { createTextBlock, createImageBlock, createShapeBlock, getNextZIndex } from "@/utils/blockFactory";
+import { UploadsSidebar } from "./UploadsSidebar";
 
-type TabType = "text" | "elements" | "images";
+type TabType = "text" | "elements" | "images" | "uploads";
 
 export function EditorSidebar() {
   const [activeTab, setActiveTab] = useState<TabType>("text");
@@ -77,6 +78,19 @@ export function EditorSidebar() {
             strokeLinecap="round"
             strokeLinejoin="round"
             d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 11v6m0 0l-3-3m3 3l3-3"
+          />
+        </svg>
+      ),
+    },
+    {
+      id: "uploads",
+      label: "Uploads",
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 8l-4-4m0 0L8 8m4-4v12"
           />
         </svg>
       ),
@@ -229,6 +243,10 @@ export function EditorSidebar() {
                   </p>
                 </button>
               </div>
+            )}
+
+            {activeTab === "uploads" && (
+              <UploadsSidebar />
             )}
             </div>
           </div>
