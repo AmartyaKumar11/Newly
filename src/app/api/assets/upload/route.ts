@@ -97,6 +97,17 @@ export async function POST(request: Request) {
         );
       }
       
+      // Provide helpful error message for RLS policy violation
+      if (error?.statusCode === "403" || error?.message?.includes("row-level security policy")) {
+        return NextResponse.json(
+          { 
+            error: "Upload blocked by Row-Level Security (RLS) policy. Please create a storage policy in Supabase.",
+            details: "Go to Supabase Dashboard > Storage > Policies > Select 'uploads' bucket > Click 'New policy' > Create a policy allowing INSERT for authenticated users"
+          },
+          { status: 500 }
+        );
+      }
+      
       return NextResponse.json(
         { error: "Failed to upload file" },
         { status: 500 }
