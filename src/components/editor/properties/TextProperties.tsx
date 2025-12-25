@@ -45,13 +45,31 @@ export function TextProperties({ block }: TextPropertiesProps) {
         <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Line Height
         </label>
+        <div className="mb-2 flex gap-2">
+          {[1.2, 1.4, 1.6, 1.8].map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => updateBlockStyles(block.id, { lineHeight: preset })}
+              className={`flex-1 rounded border px-2 py-1.5 text-xs font-medium transition cursor-pointer ${
+                (block.styles.lineHeight || 1.4) === preset
+                  ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950/20 dark:text-blue-400"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              }`}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
         <input
           type="number"
           step="0.1"
           value={block.styles.lineHeight || 1.4}
-          onChange={(e) =>
-            updateBlockStyles(block.id, { lineHeight: parseFloat(e.target.value) || 1.4 })
-          }
+          onChange={(e) => {
+            const value = parseFloat(e.target.value);
+            const clamped = Math.max(1.2, Math.min(2.5, value || 1.4));
+            updateBlockStyles(block.id, { lineHeight: clamped });
+          }}
           className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
           min="1.2"
           max="2.5"
@@ -65,13 +83,34 @@ export function TextProperties({ block }: TextPropertiesProps) {
         <label className="mb-2 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Letter Spacing
         </label>
+        <div className="mb-2 flex gap-2">
+          {[-0.5, 0, 0.5, 1, 2].map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => {
+                const clamped = Math.max(-1, Math.min(10, preset));
+                updateBlockStyles(block.id, { letterSpacing: clamped });
+              }}
+              className={`flex-1 rounded border px-2 py-1.5 text-xs font-medium transition cursor-pointer ${
+                (block.styles.letterSpacing ?? 0) === preset
+                  ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950/20 dark:text-blue-400"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              }`}
+            >
+              {preset === 0 ? "0" : preset > 0 ? `+${preset}` : preset}
+            </button>
+          ))}
+        </div>
         <input
           type="number"
           step="0.1"
           value={block.styles.letterSpacing ?? 0}
-          onChange={(e) =>
-            updateBlockStyles(block.id, { letterSpacing: parseFloat(e.target.value) || 0 })
-          }
+          onChange={(e) => {
+            const value = parseFloat(e.target.value);
+            const clamped = Math.max(-1, Math.min(10, value || 0));
+            updateBlockStyles(block.id, { letterSpacing: clamped });
+          }}
           className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
           min="-1"
           max="10"

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { TextBlock } from "@/types/blocks";
 import { useEditorStateStore } from "@/stores/editorStateStore";
+import { shouldUseAutoHeight, calculateTextHeight } from "@/utils/textAutoHeight";
 
 interface TextBlockComponentProps {
   block: TextBlock;
@@ -21,12 +22,13 @@ export function TextBlockComponent({
   onMouseLeave,
 }: TextBlockComponentProps) {
   const { position, size, styles, content } = block;
-  const { updateBlock } = useEditorStateStore();
+  const { updateBlock, resizeBlock } = useEditorStateStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content || "Text");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const contentRef = useRef<HTMLDivElement | HTMLTextAreaElement | null>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const isAutoHeight = shouldUseAutoHeight(block);
 
   useEffect(() => {
     setEditedContent(content || "Text");
@@ -39,9 +41,57 @@ export function TextBlockComponent({
     }
   }, [isEditing]);
 
-  // Detect vertical overflow (purely visual, not persisted)
-  // This runs reactively on content/size/style changes and during resize
+  // Auto-height: Calculate and update height when content or styles change
   useEffect(() => {
+    if (!isAutoHeight || !contentRef.current || isEditing) return;
+
+    const el = contentRef.current;
+    
+    // Use a temporary measurement to get accurate content height
+    const measureHeight = () => {
+      // Only measure in display mode (not editing)
+      if (el instanceof HTMLDivElement) {
+        const measuredHeight = el.scrollHeight;
+        
+        if (measuredHeight > 0) {
+          const newHeight = calculateTextHeight(block, measuredHeight);
+          
+          // Only update if height actually changed significantly (avoid infinite loops and micro-adjustments)
+          // Use 2px threshold to avoid constant tiny updates
+          if (Math.abs(newHeight - size.height) > 2) {
+            resizeBlock(block.id, { width: size.width, height: newHeight });
+          }
+        }
+      }
+    };
+
+    // Measure after DOM has updated
+    const timeoutId = setTimeout(measureHeight, 10);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    isAutoHeight,
+    editedContent,
+    content,
+    size.width,
+    styles.fontSize,
+    styles.lineHeight,
+    styles.letterSpacing,
+    styles.fontFamily,
+    block.id,
+    size.height,
+    resizeBlock,
+    isEditing,
+  ]);
+
+  // Detect vertical overflow (purely visual, not persisted)
+  // Only relevant for fixed-height blocks
+  useEffect(() => {
+    if (isAutoHeight) {
+      setIsOverflowing(false); // Auto-height blocks never overflow
+      return;
+    }
+
     const el = contentRef.current;
     if (!el) return;
 
@@ -56,11 +106,10 @@ export function TextBlockComponent({
     checkOverflow();
 
     // Also check after a brief delay to catch resize transitions
-    // This ensures overflow detection updates smoothly during drag resize
     const timeoutId = setTimeout(checkOverflow, 50);
 
     return () => clearTimeout(timeoutId);
-  }, [editedContent, size.width, size.height, styles.fontSize, styles.lineHeight, styles.letterSpacing, isEditing]);
+  }, [isAutoHeight, editedContent, size.width, size.height, styles.fontSize, styles.lineHeight, styles.letterSpacing, isEditing]);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -69,6 +118,7 @@ export function TextBlockComponent({
 
   const handleBlur = () => {
     setIsEditing(false);
+    // Update content - auto-height will recalculate after this update
     updateBlock(block.id, { content: editedContent || "Text" });
   };
 
@@ -347,7 +397,7 @@ export function TextBlockComponent({
         width: "100%",
         height: "100%",
         position: "relative",
-        overflow: "hidden", // Respect fixed bounding box, hide overflow
+        overflow: isAutoHeight ? "visible" : "hidden", // Auto-height: visible, fixed: hidden
         display: "flex",
         flexDirection: "column",
         justifyContent: justifyContentMap[verticalAlign], // Vertical alignment using flexbox
@@ -359,6 +409,7 @@ export function TextBlockComponent({
         cursor: isEditing ? "text" : "pointer",
         outline: isSelected ? "2px solid #3b82f6" : "none",
         outlineOffset: "2px",
+        transition: "outline 0.1s ease", // Smooth selection feedback
       }}
     >
       {isEditing ? (
@@ -416,6 +467,7 @@ export function TextBlockComponent({
               lineHeight: styles.lineHeight || 1.4,
               letterSpacing: styles.letterSpacing !== undefined ? `${styles.letterSpacing}px` : "0px",
               zIndex: 10, // Base text always on top
+              minHeight: isAutoHeight ? "auto" : "100%", // Auto-height: natural height, fixed: fill container
             }}
           >
             {editedContent || "Text"}

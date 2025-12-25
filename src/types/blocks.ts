@@ -57,6 +57,7 @@ export interface BlockStyles {
   lineHeight?: number; // Relative multiplier (e.g. 1.2-2.5), default 1.4
   letterSpacing?: number; // Character spacing in px (range -1 to 10), default 0
   verticalAlign?: "top" | "center" | "bottom"; // Vertical alignment inside box, default "top"
+  autoHeight?: boolean; // Auto-height mode (true by default, false when manually resized)
   textEffect?: TextEffect; // Single-effect system (preset-based, non-destructive)
   // Image specific
   objectFit?: "cover" | "contain" | "fill" | "none";

@@ -5,6 +5,7 @@ import type { Block } from "@/types/blocks";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { BlockRenderer } from "./BlockRenderer";
 import { calculateResize, type ResizeHandle } from "@/utils/blockResize";
+import { isTextBlock } from "@/types/blocks";
 
 // Canvas bounds
 const CANVAS_WIDTH = 600;
@@ -29,6 +30,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
     blocks,
     startActionGroup,
     endActionGroup,
+    updateBlock,
   } = useEditorStateStore();
 
   const isSelected = block.id === selectedBlockId;
@@ -37,6 +39,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const resizeStartRef = useRef<{ width: number; height: number; x: number; y: number } | null>(null);
   const resizeHandleRef = useRef<ResizeHandle | null>(null);
+  const hasSwitchedToFixedHeightRef = useRef<boolean>(false);
 
   // Handle drag start
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -68,6 +71,9 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
       x: e.clientX,
       y: e.clientY,
     };
+    
+    // Reset flag for this resize interaction
+    hasSwitchedToFixedHeightRef.current = false;
 
     // Start action group to batch all resize updates into one undo step
     startActionGroup();
@@ -179,6 +185,23 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
         // Image blocks: Aspect ratio preserved on corners (unless Shift), free on edges
         // Shape blocks: Free resize, no aspect ratio lock
 
+        // For text blocks: If user manually resizes vertically, switch to fixed-height mode
+        if (isTextBlock(currentBlock) && !hasSwitchedToFixedHeightRef.current) {
+          const isVerticalResize = resizeHandleRef.current === "n" || 
+                                   resizeHandleRef.current === "s" ||
+                                   resizeHandleRef.current === "nw" ||
+                                   resizeHandleRef.current === "ne" ||
+                                   resizeHandleRef.current === "sw" ||
+                                   resizeHandleRef.current === "se";
+          
+          // If user is resizing vertically and auto-height is enabled, switch to fixed-height
+          // This only happens once per resize interaction
+          if (isVerticalResize && currentBlock.styles.autoHeight !== false) {
+            updateBlockStyles(currentBlock.id, { autoHeight: false });
+            hasSwitchedToFixedHeightRef.current = true;
+          }
+        }
+
         // Apply resize (geometry-only, no style mutations)
         resizeBlock(block.id, { width: resizeResult.width, height: resizeResult.height });
         if (resizeResult.x !== currentBlock.position.x || resizeResult.y !== currentBlock.position.y) {
@@ -196,6 +219,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
       dragStartRef.current = null;
       resizeStartRef.current = null;
       resizeHandleRef.current = null;
+      hasSwitchedToFixedHeightRef.current = false;
       setEditorMode("idle");
     };
 
@@ -208,7 +232,7 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [editorMode, isSelected, block.id, moveBlock, resizeBlock, getBlock, setEditorMode, blocks, startActionGroup, endActionGroup]);
+  }, [editorMode, isSelected, block.id, moveBlock, resizeBlock, getBlock, setEditorMode, blocks, startActionGroup, endActionGroup, updateBlockStyles]);
 
   return (
     <div
@@ -256,6 +280,13 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
               cursor: "e-resize",
               zIndex: 1000,
               pointerEvents: "auto",
+              transition: "background-color 0.1s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#2563eb";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#3b82f6";
             }}
           />
           {/* West (left side) */}
