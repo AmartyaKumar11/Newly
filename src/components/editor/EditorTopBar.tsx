@@ -4,19 +4,25 @@ import { useState, useRef, useEffect } from "react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
+import { ShareModal } from "./ShareModal";
+import { useParams } from "next/navigation";
 
 interface EditorTopBarProps {
   newsletterTitle?: string;
   onTitleChange?: (title: string) => void;
   onAIClick?: () => void;
+  isViewerMode?: boolean; // Read-only viewer mode (no mutations allowed)
 }
 
-export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: EditorTopBarProps) {
+export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick, isViewerMode = false }: EditorTopBarProps) {
   const { isDirty, isSaving, lastSaved } = useEditorStore();
   const { canUndo, canRedo, undo, redo, zoomLevel, setZoomLevel } = useEditorStateStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(newsletterTitle || "Untitled Newsletter");
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const params = useParams();
+  const newsletterId = params?.id as string;
 
   useEffect(() => {
     setEditedTitle(newsletterTitle || "Untitled Newsletter");
@@ -30,7 +36,9 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: Edit
   }, [isEditing]);
 
   const handleTitleClick = () => {
-    setIsEditing(true);
+    if (!isViewerMode) {
+      setIsEditing(true);
+    }
   };
 
   const handleTitleBlur = () => {
@@ -99,15 +107,18 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: Edit
             {editedTitle}
           </h1>
         )}
-        <span
-          className={`text-xs ${
-            isDirty
-              ? "text-amber-600 dark:text-amber-400"
-              : "text-zinc-500 dark:text-zinc-400"
-          }`}
-        >
-          {getSaveStatus()}
-        </span>
+        {/* Save status - hidden in viewer mode (no autosave) */}
+        {!isViewerMode && (
+          <span
+            className={`text-xs ${
+              isDirty
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-zinc-500 dark:text-zinc-400"
+            }`}
+          >
+            {getSaveStatus()}
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2">
         {/* Theme Toggle */}
@@ -144,11 +155,35 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: Edit
           </button>
         </div>
 
+        {/* Share Button - only in edit mode */}
+        {!isViewerMode && newsletterId && (
+          <button
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
+            title="Share Newsletter"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+              />
+            </svg>
+            <span>Share</span>
+          </button>
+        )}
+
         {/* AI Generate Button */}
         {onAIClick && (
           <button
             onClick={onAIClick}
-            className="flex items-center gap-2 rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600"
+            className="flex items-center gap-2 rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600 cursor-pointer"
             title="Generate with AI"
           >
             <svg
@@ -167,49 +202,62 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick }: Edit
             <span>Generate with AI</span>
           </button>
         )}
-        {/* Undo button */}
-        <button
-          onClick={undo}
-          disabled={!canUndo()}
-          className="flex h-8 w-8 items-center justify-center rounded border border-zinc-300 text-zinc-600 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-blue-400 dark:hover:text-blue-400 dark:disabled:text-zinc-600"
-          title="Undo (Ctrl+Z)"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+        {/* Undo button - disabled in viewer mode */}
+        {!isViewerMode && (
+          <button
+            onClick={undo}
+            disabled={!canUndo()}
+            className="flex h-8 w-8 items-center justify-center rounded border border-zinc-300 text-zinc-600 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-blue-400 dark:hover:text-blue-400 dark:disabled:text-zinc-600"
+            title="Undo (Ctrl+Z)"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-            />
-          </svg>
-        </button>
-        {/* Redo button */}
-        <button
-          onClick={redo}
-          disabled={!canRedo()}
-          className="flex h-8 w-8 items-center justify-center rounded border border-zinc-300 text-zinc-600 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-blue-400 dark:hover:text-blue-400 dark:disabled:text-zinc-600"
-          title="Redo (Ctrl+Shift+Z)"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+              />
+            </svg>
+          </button>
+        )}
+        {/* Redo button - disabled in viewer mode */}
+        {!isViewerMode && (
+          <button
+            onClick={redo}
+            disabled={!canRedo()}
+            className="flex h-8 w-8 items-center justify-center rounded border border-zinc-300 text-zinc-600 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-blue-400 dark:hover:text-blue-400 dark:disabled:text-zinc-600"
+            title="Redo (Ctrl+Shift+Z)"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"
-            />
-          </svg>
-        </button>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"
+              />
+            </svg>
+          </button>
+        )}
       </div>
+
+      {/* Share Modal */}
+      {newsletterId && (
+        <ShareModal
+          newsletterId={newsletterId}
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

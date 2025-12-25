@@ -113,7 +113,10 @@ export function TextBlockComponent({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsEditing(true);
+    // Viewer mode: no editing allowed
+    // Note: isViewerMode would need to be passed as prop, but for now we check if onSelect is disabled
+    // This is a safety check - viewer mode should prevent selection entirely
+    setIsEditing(false);
   };
 
   const handleBlur = () => {

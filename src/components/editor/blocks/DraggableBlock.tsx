@@ -13,9 +13,10 @@ const CANVAS_HEIGHT = 800;
 
 interface DraggableBlockProps {
   block: Block;
+  isViewerMode?: boolean; // Read-only viewer mode (no mutations allowed)
 }
 
-export function DraggableBlock({ block }: DraggableBlockProps) {
+export function DraggableBlock({ block, isViewerMode = false }: DraggableBlockProps) {
   const {
     selectedBlockId,
     hoveredBlockId,
@@ -41,8 +42,9 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
   const resizeHandleRef = useRef<ResizeHandle | null>(null);
   const hasSwitchedToFixedHeightRef = useRef<boolean>(false);
 
-  // Handle drag start
+  // Handle drag start - disabled in viewer mode
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isViewerMode) return; // Viewer mode: no dragging allowed
     if (e.button !== 0) return; // Only left mouse button
 
     e.stopPropagation();
@@ -59,8 +61,9 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
     setEditorMode("dragging");
   };
 
-  // Handle resize start
+  // Handle resize start - disabled in viewer mode
   const handleResizeMouseDown = (e: React.MouseEvent, handle: ResizeHandle) => {
+    if (isViewerMode) return; // Viewer mode: no resizing allowed
     e.stopPropagation();
     selectBlock(block.id);
 
@@ -261,8 +264,8 @@ export function DraggableBlock({ block }: DraggableBlockProps) {
         />
       </div>
 
-      {/* Resize handles - only show when selected */}
-      {isSelected && (
+      {/* Resize handles - only show when selected and not in viewer mode */}
+      {isSelected && !isViewerMode && (
         <>
           {/* East (right side) */}
           <div

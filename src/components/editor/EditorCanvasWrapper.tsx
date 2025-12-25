@@ -12,7 +12,11 @@ import type { Asset } from "@/hooks/useAssets";
 export const CANVAS_WIDTH = 600;
 export const CANVAS_HEIGHT = 800;
 
-export function EditorCanvasWrapper() {
+interface EditorCanvasWrapperProps {
+  isViewerMode?: boolean; // Read-only viewer mode (no mutations allowed)
+}
+
+export function EditorCanvasWrapper({ isViewerMode = false }: EditorCanvasWrapperProps = {}) {
   const {
     blocks,
     selectedBlockId,
@@ -88,8 +92,10 @@ export function EditorCanvasWrapper() {
     }
   }, [containerSize, calculateFitZoom, zoomLevel, setZoomLevel]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - disabled in viewer mode (no mutations allowed)
   useEffect(() => {
+    if (isViewerMode) return; // Viewer mode: no keyboard shortcuts
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't handle shortcuts when typing in inputs
       if (
@@ -133,9 +139,12 @@ export function EditorCanvasWrapper() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedBlockId, deleteBlock, duplicateBlock, clearSelection, undo, redo, canUndo, canRedo]);
+  }, [isViewerMode, selectedBlockId, deleteBlock, duplicateBlock, clearSelection, undo, redo, canUndo, canRedo]);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Viewer mode: no selection clearing (read-only)
+    if (isViewerMode) return;
+    
     // Only clear selection if clicking directly on canvas, not on a block
     if (e.target === e.currentTarget) {
       clearSelection();
@@ -231,9 +240,9 @@ export function EditorCanvasWrapper() {
           ref={canvasRef}
           data-canvas-element
           onClick={handleCanvasClick}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          onDragOver={isViewerMode ? undefined : handleDragOver}
+          onDragLeave={isViewerMode ? undefined : handleDragLeave}
+          onDrop={isViewerMode ? undefined : handleDrop}
           className={`relative rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${
             isDragOver ? "ring-2 ring-blue-500 ring-offset-2" : ""
           }`}
@@ -265,7 +274,7 @@ export function EditorCanvasWrapper() {
             </div>
           ) : (
             sortedBlocks.map((block) => (
-              <DraggableBlock key={block.id} block={block} />
+              <DraggableBlock key={block.id} block={block} isViewerMode={isViewerMode} />
             ))
           )}
         </div>

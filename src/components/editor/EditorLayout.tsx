@@ -22,15 +22,17 @@ interface Newsletter {
   status?: string;
   blocks?: unknown[];
   structureJSON?: Record<string, unknown>;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 interface EditorLayoutProps {
   newsletterId: string;
+  editorMode?: "edit" | "view"; // Default: "edit", "view" = read-only viewer mode
+  initialNewsletter?: Newsletter | null; // Optional: pre-loaded newsletter data (for viewer mode)
 }
 
-export function EditorLayout({ newsletterId }: EditorLayoutProps) {
+export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit", initialNewsletter }: EditorLayoutProps) {
   const router = useRouter();
   const {
     lifecycleState,
@@ -64,6 +66,22 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
 
     async function loadNewsletter() {
       try {
+        // Viewer mode: use pre-loaded newsletter data (no auth required)
+        if (propEditorMode === "view" && initialNewsletter) {
+          setNewsletter(initialNewsletter);
+          
+          // Load blocks into editor state
+          if (initialNewsletter.blocks && Array.isArray(initialNewsletter.blocks)) {
+            const deserializedBlocks = deserializeBlocks(initialNewsletter.blocks);
+            setBlocks(deserializedBlocks);
+          }
+          
+          setLifecycleState("ready");
+          isInitialLoadRef.current = false;
+          return;
+        }
+
+        // Edit mode: load via authenticated API
         const response = await fetch(`/api/newsletters/${newsletterId}`);
 
         if (response.status === 401) {
@@ -99,10 +117,12 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
     }
 
     loadNewsletter();
-  }, [newsletterId, router, setNewsletterId, setLifecycleState]);
+  }, [newsletterId, router, setNewsletterId, setLifecycleState, propEditorMode, initialNewsletter]);
 
   // Watch for block changes and mark as dirty (using hash to prevent unnecessary updates)
+  // DISABLED in viewer mode - no autosave allowed
   useEffect(() => {
+    if (propEditorMode === "view") return; // Viewer mode: no autosave
     if (isInitialLoadRef.current || lifecycleState !== "ready") {
       return;
     }
@@ -115,10 +135,14 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
       blocksHashRef.current = blocksHash;
       setDirty(true);
     }
-  }, [blocks, lifecycleState, setDirty]);
+  }, [blocks, lifecycleState, setDirty, propEditorMode]);
 
   // Autosave with debounce (2 seconds after last change)
+  // DISABLED in viewer mode - no mutations allowed
   const performAutosave = useCallback(async () => {
+    // Viewer mode: no autosave
+    if (propEditorMode === "view") return;
+    
     // Prevent concurrent saves
     if (isSavingRef.current || !isDirty || isSaving || lifecycleState !== "ready") {
       return;
@@ -168,10 +192,12 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
       isSavingRef.current = false;
       setSaving(false);
     }
-  }, [blocks, isDirty, isSaving, lifecycleState, newsletterId, newsletter?.structureJSON, setSaving, setLastSaved, setDirty]);
+  }, [blocks, isDirty, isSaving, lifecycleState, newsletterId, newsletter?.structureJSON, setSaving, setLastSaved, setDirty, propEditorMode]);
 
   // Debounced autosave (using hash to prevent unnecessary triggers)
+  // DISABLED in viewer mode - no mutations allowed
   useEffect(() => {
+    if (propEditorMode === "view") return; // Viewer mode: no autosave
     if (lifecycleState !== "ready" || !isDirty || isInitialLoadRef.current) {
       return;
     }
@@ -294,42 +320,52 @@ export function EditorLayout({ newsletterId }: EditorLayoutProps) {
   }
 
   // Ready state - render the layout
+  const isViewerMode = propEditorMode === "view";
+  
+  // Viewer mode: Read-only access, no mutations allowed
+  // - Blocks render normally but cannot be selected, dragged, or resized
+  // - No autosave, undo, AI, uploads, or property panels
+  // - This is enforced at the component level to prevent any editor state mutations
+  
   return (
     <EditorErrorBoundary newsletterId={newsletterId}>
       <div className="flex h-screen flex-col overflow-hidden bg-white dark:bg-zinc-950">
-        {/* Top toolbar */}
+        {/* Top toolbar - simplified in viewer mode */}
         <EditorTopBar
           newsletterTitle={newsletter?.title}
-          onTitleChange={handleTitleChange}
-          onAIClick={() => setIsAIPanelOpen(true)}
+          onTitleChange={isViewerMode ? undefined : handleTitleChange}
+          onAIClick={isViewerMode ? undefined : () => setIsAIPanelOpen(true)}
+          isViewerMode={isViewerMode}
         />
 
         {/* Main content area */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left sidebar */}
-          <EditorSidebar />
+          {/* Left sidebar - hidden in viewer mode */}
+          {!isViewerMode && <EditorSidebar />}
 
-          {/* Center canvas wrapper */}
-          <EditorCanvasWrapper />
+          {/* Center canvas wrapper - read-only in viewer mode */}
+          <EditorCanvasWrapper isViewerMode={isViewerMode} />
 
-          {/* Right properties panel */}
-          <EditorPropertiesPanel />
+          {/* Right properties panel - hidden in viewer mode */}
+          {!isViewerMode && <EditorPropertiesPanel />}
         </div>
 
-        {/* Floating overlay layer for selection toolbars */}
-        <TextFloatingToolbar />
+        {/* Floating overlay layer - disabled in viewer mode */}
+        {!isViewerMode && (
+          <>
+            <TextFloatingToolbar />
+            <PositionSidebarWrapper />
+            <TextEffectsPanelWrapper />
+          </>
+        )}
 
-        {/* Position Sidebar */}
-        <PositionSidebarWrapper />
-
-        {/* Text Effects Panel */}
-        <TextEffectsPanelWrapper />
-
-        {/* AI Panel */}
-        <AIPanel
-          isOpen={isAIPanelOpen}
-          onClose={() => setIsAIPanelOpen(false)}
-        />
+        {/* AI Panel - disabled in viewer mode */}
+        {!isViewerMode && (
+          <AIPanel
+            isOpen={isAIPanelOpen}
+            onClose={() => setIsAIPanelOpen(false)}
+          />
+        )}
       </div>
     </EditorErrorBoundary>
   );
