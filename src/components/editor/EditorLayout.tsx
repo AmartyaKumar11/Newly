@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { deserializeBlocks, serializeBlocks } from "@/utils/blockSerialization";
@@ -14,6 +15,10 @@ import { AIPanel } from "./AIPanel";
 import { TextFloatingToolbar } from "./TextFloatingToolbar";
 import { PositionSidebarWrapper } from "./PositionSidebarWrapper";
 import { TextEffectsPanelWrapper } from "./TextEffectsPanelWrapper";
+import { usePresence } from "@/hooks/usePresence";
+import { PresenceIndicator } from "@/components/presence/PresenceIndicator";
+import { PresenceCursors } from "@/components/presence/PresenceCursors";
+import type { AccessRole } from "@/types/access";
 
 interface Newsletter {
   _id: string;
@@ -34,6 +39,7 @@ interface EditorLayoutProps {
 
 export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit", initialNewsletter }: EditorLayoutProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const {
     lifecycleState,
     setLifecycleState,
@@ -55,6 +61,21 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
 
   const { blocks, setBlocks } = useEditorStateStore();
   const { setDirty } = useEditorStore();
+
+  // Determine role for presence (must be before usePresence hook)
+  const isViewerMode = propEditorMode === "view";
+  const presenceRole: AccessRole = isViewerMode ? "viewer" : "owner";
+  
+  // Initialize presence (Phase 4.0: Collaboration Foundations)
+  // MUST be called before any conditional returns (Rules of Hooks)
+  // Presence is isolated from editor state and does not mutate content
+  const presence = usePresence({
+    newsletterId,
+    userId: session?.user?.id || null,
+    role: presenceRole,
+    userDisplayName: session?.user?.name || undefined,
+    enabled: lifecycleState === "ready", // Only enable when editor is ready
+  });
 
   // Initialize editor lifecycle
   useEffect(() => {
@@ -320,8 +341,6 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
   }
 
   // Ready state - render the layout
-  const isViewerMode = propEditorMode === "view";
-  
   // Viewer mode: Read-only access, no mutations allowed
   // - Blocks render normally but cannot be selected, dragged, or resized
   // - No autosave, undo, AI, uploads, or property panels
@@ -336,6 +355,8 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
           onTitleChange={isViewerMode ? undefined : handleTitleChange}
           onAIClick={isViewerMode ? undefined : () => setIsAIPanelOpen(true)}
           isViewerMode={isViewerMode}
+          presence={presence}
+          role={presenceRole}
         />
 
         {/* Main content area */}
@@ -344,7 +365,10 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
           {!isViewerMode && <EditorSidebar />}
 
           {/* Center canvas wrapper - read-only in viewer mode */}
-          <EditorCanvasWrapper isViewerMode={isViewerMode} />
+          <EditorCanvasWrapper 
+            isViewerMode={isViewerMode}
+            presence={presence}
+          />
 
           {/* Right properties panel - hidden in viewer mode */}
           {!isViewerMode && <EditorPropertiesPanel />}
@@ -366,6 +390,7 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
             onClose={() => setIsAIPanelOpen(false)}
           />
         )}
+
       </div>
     </EditorErrorBoundary>
   );

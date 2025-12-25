@@ -6,15 +6,20 @@ import { useEditorStateStore } from "@/stores/editorStateStore";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 import { ShareModal } from "./ShareModal";
 import { useParams } from "next/navigation";
+import { PresenceIndicator } from "@/components/presence/PresenceIndicator";
+import type { PresenceState } from "@/hooks/usePresence";
+import type { AccessRole } from "@/types/access";
 
 interface EditorTopBarProps {
   newsletterTitle?: string;
   onTitleChange?: (title: string) => void;
   onAIClick?: () => void;
   isViewerMode?: boolean; // Read-only viewer mode (no mutations allowed)
+  presence?: PresenceState; // Phase 4.0: Presence awareness
+  role?: AccessRole; // User's role for presence visibility
 }
 
-export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick, isViewerMode = false }: EditorTopBarProps) {
+export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick, isViewerMode = false, presence, role = "owner" }: EditorTopBarProps) {
   const { isDirty, isSaving, lastSaved } = useEditorStore();
   const { canUndo, canRedo, undo, redo, zoomLevel, setZoomLevel } = useEditorStateStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -118,6 +123,11 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick, isView
           >
             {getSaveStatus()}
           </span>
+        )}
+
+        {/* Presence Indicator - Phase 4.0: Collaboration Foundations */}
+        {presence && (
+          <PresenceIndicator presence={presence} role={role} />
         )}
       </div>
       <div className="flex items-center gap-2">

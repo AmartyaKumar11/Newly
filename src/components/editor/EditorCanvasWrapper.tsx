@@ -7,6 +7,8 @@ import { AlignmentGuides } from "./AlignmentGuides";
 import { assetToImageBlock, calculateDropPosition } from "@/utils/assetToBlock";
 import { getNextZIndex } from "@/utils/blockFactory";
 import type { Asset } from "@/hooks/useAssets";
+import type { PresenceState } from "@/hooks/usePresence";
+import { PresenceCursors } from "@/components/presence/PresenceCursors";
 
 // Fixed canvas size for newsletter (standard email width)
 export const CANVAS_WIDTH = 600;
@@ -14,9 +16,10 @@ export const CANVAS_HEIGHT = 800;
 
 interface EditorCanvasWrapperProps {
   isViewerMode?: boolean; // Read-only viewer mode (no mutations allowed)
+  presence?: PresenceState; // Phase 4.0: Presence awareness
 }
 
-export function EditorCanvasWrapper({ isViewerMode = false }: EditorCanvasWrapperProps = {}) {
+export function EditorCanvasWrapper({ isViewerMode = false, presence }: EditorCanvasWrapperProps = {}) {
   const {
     blocks,
     selectedBlockId,
@@ -141,6 +144,26 @@ export function EditorCanvasWrapper({ isViewerMode = false }: EditorCanvasWrappe
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isViewerMode, selectedBlockId, deleteBlock, duplicateBlock, clearSelection, undo, redo, canUndo, canRedo]);
 
+  // Track mouse movement for presence cursor broadcasting (Phase 4.0)
+  // This is visual-only and does not affect editor state
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!presence || !canvasRef.current) return;
+
+    // Calculate cursor position relative to canvas
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoomLevel;
+    const y = (e.clientY - rect.top) / zoomLevel;
+
+    // Broadcast cursor position (throttled in hook)
+    presence.broadcastCursor(x, y);
+  }, [presence, zoomLevel]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (!presence) return;
+    // Clear cursor when mouse leaves canvas
+    presence.clearCursor();
+  }, [presence]);
+
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Viewer mode: no selection clearing (read-only)
     if (isViewerMode) return;
@@ -240,6 +263,8 @@ export function EditorCanvasWrapper({ isViewerMode = false }: EditorCanvasWrappe
           ref={canvasRef}
           data-canvas-element
           onClick={handleCanvasClick}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
           onDragOver={isViewerMode ? undefined : handleDragOver}
           onDragLeave={isViewerMode ? undefined : handleDragLeave}
           onDrop={isViewerMode ? undefined : handleDrop}
@@ -276,6 +301,15 @@ export function EditorCanvasWrapper({ isViewerMode = false }: EditorCanvasWrappe
             sortedBlocks.map((block) => (
               <DraggableBlock key={block.id} block={block} isViewerMode={isViewerMode} />
             ))
+          )}
+
+          {/* Presence Cursors - Ghost cursors for other users (Phase 4.0) */}
+          {presence?.isConnected && canvasRef.current && (
+            <PresenceCursors
+              sessions={presence.sessions}
+              canvasElement={canvasRef.current}
+              zoom={zoomLevel}
+            />
           )}
         </div>
       </div>
