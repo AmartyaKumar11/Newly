@@ -19,6 +19,8 @@ import { usePresence } from "@/hooks/usePresence";
 import { PresenceIndicator } from "@/components/presence/PresenceIndicator";
 import { PresenceCursors } from "@/components/presence/PresenceCursors";
 import type { AccessRole } from "@/types/access";
+import { useLiveEditing } from "@/hooks/useLiveEditing";
+import { LiveEditingProvider } from "@/contexts/LiveEditingContext";
 
 interface Newsletter {
   _id: string;
@@ -81,6 +83,16 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
     enabled: lifecycleState === "ready", // Only enable when editor is ready
   });
 
+  // Initialize live editing (Phase 4.1: Live Editing)
+  // MUST be called before any conditional returns (Rules of Hooks)
+  // Live editing enables real-time collaborative mutations
+  const liveEditing = useLiveEditing({
+    newsletterId,
+    userId: session?.user?.id || null,
+    role: presenceRole,
+    enabled: lifecycleState === "ready" && !isViewerMode, // Only enable when ready and not in viewer mode
+  });
+
   // Initialize editor lifecycle
   useEffect(() => {
     if (hasInitializedRef.current) return;
@@ -103,6 +115,11 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
           
           setLifecycleState("ready");
           isInitialLoadRef.current = false;
+          
+          // Initialize live editing state on server (for editor role)
+          if (!isViewerMode && liveEditing.isConnected) {
+            // Server will initialize authoritative state when mutation:init is received
+          }
           return;
         }
 
@@ -135,6 +152,11 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
         
         setLifecycleState("ready");
         isInitialLoadRef.current = false;
+        
+        // Initialize live editing state on server (when connected)
+        if (liveEditing.isConnected) {
+          // Server will initialize authoritative state when mutation:init is received
+        }
       } catch (err) {
         console.error("Failed to load newsletter:", err);
         setLifecycleState("error");
@@ -365,6 +387,12 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
   
   return (
     <EditorErrorBoundary newsletterId={newsletterId}>
+      <LiveEditingProvider
+        value={{
+          broadcastMutation: liveEditing.broadcastMutation,
+          isConnected: liveEditing.isConnected,
+        }}
+      >
       <div className="flex h-screen flex-col overflow-hidden bg-white dark:bg-zinc-950">
         {/* Top toolbar - simplified in viewer mode */}
         <EditorTopBar
@@ -410,6 +438,7 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
         )}
 
       </div>
+      </LiveEditingProvider>
     </EditorErrorBoundary>
   );
 }

@@ -1,12 +1,14 @@
 /**
  * Socket.IO Server Setup
  * 
- * Phase 4.0: Collaboration Foundations
+ * Phase 4.0: Collaboration Foundations (Presence)
+ * Phase 4.1: Live Editing (Mutations)
  * 
- * WebSocket server for real-time presence awareness.
+ * WebSocket server for real-time presence awareness and live editing.
  * 
- * This is isolated from editor, autosave, undo, and AI systems.
- * Presence is visual-only and does not mutate content.
+ * This handles:
+ * - Presence (Phase 4.0): Visual-only, does not mutate content
+ * - Mutations (Phase 4.1): Real-time collaborative editing
  */
 
 import { Server as SocketIOServer } from "socket.io";
@@ -22,6 +24,16 @@ import {
   type PresenceSession,
 } from "./presenceStore";
 import type { AccessRole } from "@/types/access";
+import type { Mutation, MutationBroadcast } from "@/types/mutations";
+import {
+  processMutation,
+  initializeAuthoritativeState,
+  getAuthoritativeState,
+} from "../live-editing/mutationEngine";
+import {
+  initializeDocumentVersion,
+  getDocumentVersion,
+} from "../live-editing/mutationStore";
 
 let io: SocketIOServer | null = null;
 
@@ -176,6 +188,106 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketIOServer {
         socket.to(`newsletter:${currentSession.newsletterId}`).emit("presence:update", {
           sessions: allSessions,
         });
+      }
+    });
+
+    // ========================================
+    // Phase 4.1: Live Editing Mutations
+    // ========================================
+
+    // Handle mutation submission
+    socket.on("mutation:submit", (data: { mutation: Mutation }) => {
+      try {
+        if (!currentSession) {
+          socket.emit("mutation:ack", {
+            mutationId: data.mutation.mutationId,
+            accepted: false,
+            appliedVersion: 0,
+            reason: "Not connected to a newsletter",
+          });
+          return;
+        }
+
+        // Get user role from session
+        const role: AccessRole = currentSession.role;
+
+        // Process mutation
+        const result = processMutation(data.mutation, role);
+
+        // Send acknowledgement
+        socket.emit("mutation:ack", result.ack);
+
+        // Broadcast to other editors if accepted
+        if (result.shouldBroadcast) {
+          const broadcast: MutationBroadcast = {
+            mutation: data.mutation,
+            appliedVersion: result.ack.appliedVersion!,
+            appliedBy: currentSession.userId || currentSession.anonymousId || "unknown",
+          };
+
+          // Broadcast to all others in the room
+          socket.to(`newsletter:${data.mutation.newsletterId}`).emit("mutation:broadcast", broadcast);
+
+          // Also send updated blocks to all clients (for reconciliation)
+          if (result.blocks && io) {
+            io.to(`newsletter:${data.mutation.newsletterId}`).emit("mutation:state-update", {
+              newsletterId: data.mutation.newsletterId,
+              blocks: result.blocks,
+              version: result.ack.appliedVersion!,
+            });
+          }
+        }
+
+        // Debug logging
+        if (process.env.NODE_ENV === "development") {
+          console.log("[socketServer] mutation:submit", {
+            mutationId: data.mutation.mutationId.substring(0, 8),
+            type: data.mutation.type,
+            accepted: result.ack.accepted,
+            version: result.ack.appliedVersion,
+            reason: result.ack.reason,
+          });
+        }
+      } catch (error) {
+        console.error("Error in mutation:submit:", error);
+        socket.emit("mutation:ack", {
+          mutationId: data.mutation.mutationId,
+          accepted: false,
+          appliedVersion: getDocumentVersion(data.mutation.newsletterId).version,
+          reason: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    });
+
+    // Handle document state initialization request
+    socket.on("mutation:init", (data: { newsletterId: string; blocks: any[]; version?: number }) => {
+      try {
+        // Initialize authoritative state
+        initializeAuthoritativeState(data.newsletterId, data.blocks);
+        
+        // Initialize document version
+        if (data.version !== undefined) {
+          initializeDocumentVersion(data.newsletterId, data.version);
+        } else {
+          initializeDocumentVersion(data.newsletterId, 0);
+        }
+
+        // Send current state back
+        socket.emit("mutation:init-ack", {
+          newsletterId: data.newsletterId,
+          version: getDocumentVersion(data.newsletterId).version,
+          blocks: getAuthoritativeState(data.newsletterId),
+        });
+
+        if (process.env.NODE_ENV === "development") {
+          console.log("[socketServer] mutation:init", {
+            newsletterId: data.newsletterId,
+            version: getDocumentVersion(data.newsletterId).version,
+            blockCount: data.blocks.length,
+          });
+        }
+      } catch (error) {
+        console.error("Error in mutation:init:", error);
       }
     });
   });
