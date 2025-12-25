@@ -262,11 +262,20 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketIOServer {
     // Handle document state initialization request
     socket.on("mutation:init", (data: { newsletterId: string; blocks: any[]; version?: number }) => {
       try {
+        // Validate input
+        if (!data.newsletterId) {
+          console.error("[socketServer] mutation:init: Missing newsletterId");
+          return;
+        }
+
+        // Ensure blocks is an array
+        const blocks = Array.isArray(data.blocks) ? data.blocks : [];
+        
         // Initialize authoritative state
-        initializeAuthoritativeState(data.newsletterId, data.blocks);
+        initializeAuthoritativeState(data.newsletterId, blocks);
         
         // Initialize document version
-        if (data.version !== undefined) {
+        if (data.version !== undefined && typeof data.version === "number") {
           initializeDocumentVersion(data.newsletterId, data.version);
         } else {
           initializeDocumentVersion(data.newsletterId, 0);
@@ -283,11 +292,17 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketIOServer {
           console.log("[socketServer] mutation:init", {
             newsletterId: data.newsletterId,
             version: getDocumentVersion(data.newsletterId).version,
-            blockCount: data.blocks.length,
+            blockCount: blocks.length,
           });
         }
       } catch (error) {
-        console.error("Error in mutation:init:", error);
+        console.error("[socketServer] Error in mutation:init:", error);
+        // Send error response
+        socket.emit("mutation:init-ack", {
+          newsletterId: data?.newsletterId || "",
+          version: 0,
+          blocks: [],
+        });
       }
     });
   });

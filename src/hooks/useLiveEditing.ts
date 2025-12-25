@@ -58,6 +58,7 @@ export function useLiveEditing({
   const pendingMutationsRef = useRef<Set<string>>(new Set());
   const lastKnownBlocksRef = useRef<Block[]>([]);
   const isReconcilingRef = useRef<boolean>(false);
+  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { blocks, setBlocks } = useEditorStateStore();
 
@@ -85,24 +86,40 @@ export function useLiveEditing({
 
     // Initialize document state when connected
     socket.on("connect", () => {
+      // Clear any existing timeout
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+      }
+      
       // Request document state initialization
-      socket.emit("mutation:init", {
-        newsletterId,
-        blocks: blocks,
-        version: documentVersionRef.current,
-      });
+      // Use a small delay to ensure blocks are loaded
+      initTimeoutRef.current = setTimeout(() => {
+        if (socketRef.current?.connected) {
+          socketRef.current.emit("mutation:init", {
+            newsletterId,
+            blocks: blocks || [],
+            version: documentVersionRef.current,
+          });
+        }
+        initTimeoutRef.current = null;
+      }, 500);
     });
 
     // Handle initialization acknowledgement
     socket.on("mutation:init-ack", (data: { version: number; blocks: Block[] }) => {
       documentVersionRef.current = data.version;
       
-      // Reconcile with current state
-      if (data.blocks.length > 0 && JSON.stringify(data.blocks) !== JSON.stringify(blocks)) {
-        isReconcilingRef.current = true;
-        setBlocks(data.blocks);
-        lastKnownBlocksRef.current = data.blocks;
-        isReconcilingRef.current = false;
+      // Reconcile with current state (only if blocks are different)
+      // Don't reconcile if we're in the middle of loading or if blocks haven't changed
+      const currentBlocks = blocks || [];
+      if (data.blocks && Array.isArray(data.blocks) && data.blocks.length > 0) {
+        const blocksChanged = JSON.stringify(data.blocks) !== JSON.stringify(currentBlocks);
+        if (blocksChanged) {
+          isReconcilingRef.current = true;
+          setBlocks(data.blocks);
+          lastKnownBlocksRef.current = data.blocks;
+          isReconcilingRef.current = false;
+        }
       }
     });
 
@@ -153,10 +170,15 @@ export function useLiveEditing({
     });
 
     return () => {
+      // Clear initialization timeout
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+        initTimeoutRef.current = null;
+      }
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [actuallyEnabled, newsletterId, userId, role]);
+  }, [actuallyEnabled, newsletterId, userId, role, blocks]);
 
   /**
    * Apply remote mutation to local state

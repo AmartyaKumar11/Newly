@@ -50,7 +50,9 @@ const authoritativeState = new Map<string, Block[]>();
  * Initialize authoritative state from database
  */
 export function initializeAuthoritativeState(newsletterId: string, blocks: Block[]): void {
-  authoritativeState.set(newsletterId, JSON.parse(JSON.stringify(blocks))); // Deep clone
+  // Ensure blocks is an array
+  const safeBlocks = Array.isArray(blocks) ? blocks : [];
+  authoritativeState.set(newsletterId, JSON.parse(JSON.stringify(safeBlocks))); // Deep clone
 }
 
 /**

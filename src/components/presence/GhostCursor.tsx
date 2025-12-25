@@ -16,6 +16,7 @@ interface GhostCursorProps {
   session: PresenceSession;
   canvasOffset?: { x: number; y: number }; // Canvas position on screen
   zoom?: number; // Current zoom level
+  scaledContainer?: HTMLElement | null; // Parent container with scale transform
 }
 
 /**
@@ -30,6 +31,7 @@ export function GhostCursor({
   session,
   canvasOffset = { x: 0, y: 0 },
   zoom = 1,
+  scaledContainer,
 }: GhostCursorProps) {
   if (!session.cursorPosition) {
     return null;
@@ -38,10 +40,12 @@ export function GhostCursor({
   const { x, y } = session.cursorPosition;
 
   // Calculate on-screen position (accounting for canvas offset and zoom)
-  // x, y are canvas-relative coordinates (0,0 is top-left of canvas)
-  // We need to convert to screen coordinates by:
-  // 1. Scaling by zoom
-  // 2. Adding canvas offset (canvas position on screen)
+  // x, y are canvas-relative coordinates (0,0 is top-left of canvas at 1x zoom)
+  // The canvas is inside a scaled container (transform: scale(zoom))
+  // getBoundingClientRect() on the canvas element already accounts for the parent's transform
+  // So we just need to:
+  // 1. Scale canvas coordinates by zoom (to get screen-space coordinates within the scaled canvas)
+  // 2. Add the canvas element's position on screen
   const screenX = canvasOffset.x + x * zoom;
   const screenY = canvasOffset.y + y * zoom;
 

@@ -39,19 +39,26 @@ export function PresenceCursors({
     const updateOffset = () => {
       if (!canvasElement) return;
       const rect = canvasElement.getBoundingClientRect();
+      // getBoundingClientRect() returns viewport-relative coordinates
+      // This already accounts for any CSS transforms on parent elements
+      // Fixed positioning uses viewport coordinates, so no scroll offset needed
       setCanvasOffset({
-        x: rect.left + (window.scrollX || 0),
-        y: rect.top + (window.scrollY || 0),
+        x: rect.left,
+        y: rect.top,
       });
     };
 
     updateOffset();
 
-    // Update on scroll and resize
+    // Update on scroll, resize, and zoom changes
+    const observer = new ResizeObserver(updateOffset);
+    observer.observe(canvasElement);
+    
     window.addEventListener("scroll", updateOffset, true);
     window.addEventListener("resize", updateOffset);
 
     return () => {
+      observer.disconnect();
       window.removeEventListener("scroll", updateOffset, true);
       window.removeEventListener("resize", updateOffset);
     };
@@ -84,6 +91,9 @@ export function PresenceCursors({
     return null;
   }
 
+  // Get the parent scaled container if it exists
+  const scaledContainer = canvasElement?.parentElement;
+
   return (
     <>
       {sessionsWithCursors.map((session) => (
@@ -92,6 +102,7 @@ export function PresenceCursors({
           session={session}
           canvasOffset={canvasOffset}
           zoom={zoom}
+          scaledContainer={scaledContainer}
         />
       ))}
     </>

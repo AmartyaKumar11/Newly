@@ -1,11 +1,15 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import type { Block } from "@/types/blocks";
 import { useEditorStateStore } from "@/stores/editorStateStore";
 import { BlockRenderer } from "./BlockRenderer";
 import { calculateResize, type ResizeHandle } from "@/utils/blockResize";
 import { isTextBlock } from "@/types/blocks";
+import { useLiveEditingContext } from "@/contexts/LiveEditingContext";
+import { generateMutationId } from "@/types/mutations";
+import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 // Canvas bounds
 const CANVAS_WIDTH = 600;
@@ -24,15 +28,59 @@ export function DraggableBlock({ block, isViewerMode = false }: DraggableBlockPr
     selectBlock,
     setHoveredBlock,
     setEditorMode,
-    moveBlock,
-    resizeBlock,
+    moveBlock: storeMoveBlock,
+    resizeBlock: storeResizeBlock,
     getBlock,
-    updateBlockStyles,
+    updateBlockStyles: storeUpdateBlockStyles,
     blocks,
     startActionGroup,
     endActionGroup,
-    updateBlock,
+    updateBlock: storeUpdateBlock,
   } = useEditorStateStore();
+
+  // Live editing context for mutation broadcasting
+  // Context will return no-op functions if not available (handled in context)
+  const { broadcastMutation, isConnected } = useLiveEditingContext();
+  const params = useParams();
+  const { data: session } = useSession();
+  const newsletterId = params?.id as string;
+  const userId = session?.user?.id || null;
+
+  // Wrapped operations that broadcast mutations
+  // Use useCallback to create stable function references for dependency arrays
+  const moveBlockWithBroadcast = useCallback((id: string, position: { x: number; y: number }) => {
+    storeMoveBlock(id, position);
+    // Only broadcast if live editing is enabled and we have required data
+    if (isConnected && !isViewerMode && newsletterId) {
+      broadcastMutation({
+        mutationId: generateMutationId(),
+        userId,
+        timestamp: Date.now(),
+        baseVersion: 0,
+        type: "move_block",
+        newsletterId,
+        blockId: id,
+        position,
+      });
+    }
+  }, [storeMoveBlock, isConnected, isViewerMode, newsletterId, broadcastMutation, userId]);
+
+  const resizeBlockWithBroadcast = useCallback((id: string, size: { width: number; height: number }) => {
+    storeResizeBlock(id, size);
+    // Only broadcast if live editing is enabled and we have required data
+    if (isConnected && !isViewerMode && newsletterId) {
+      broadcastMutation({
+        mutationId: generateMutationId(),
+        userId,
+        timestamp: Date.now(),
+        baseVersion: 0,
+        type: "resize_block",
+        newsletterId,
+        blockId: id,
+        size,
+      });
+    }
+  }, [storeResizeBlock, isConnected, isViewerMode, newsletterId, broadcastMutation, userId]);
 
   const isSelected = block.id === selectedBlockId;
   const isHovered = block.id === hoveredBlockId;
@@ -152,7 +200,7 @@ export function DraggableBlock({ block, isViewerMode = false }: DraggableBlockPr
         const constrainedX = Math.max(0, Math.min(newX, CANVAS_WIDTH - currentBlock.size.width));
         const constrainedY = Math.max(0, Math.min(newY, CANVAS_HEIGHT - currentBlock.size.height));
 
-        moveBlock(block.id, { x: constrainedX, y: constrainedY });
+        moveBlockWithBroadcast(block.id, { x: constrainedX, y: constrainedY });
       }
 
       if (editorMode === "resizing" && resizeStartRef.current && resizeHandleRef.current && isSelected) {
@@ -200,15 +248,15 @@ export function DraggableBlock({ block, isViewerMode = false }: DraggableBlockPr
           // If user is resizing vertically and auto-height is enabled, switch to fixed-height
           // This only happens once per resize interaction
           if (isVerticalResize && currentBlock.styles.autoHeight !== false) {
-            updateBlockStyles(currentBlock.id, { autoHeight: false });
+            storeUpdateBlockStyles(currentBlock.id, { autoHeight: false });
             hasSwitchedToFixedHeightRef.current = true;
           }
         }
 
         // Apply resize (geometry-only, no style mutations)
-        resizeBlock(block.id, { width: resizeResult.width, height: resizeResult.height });
+        resizeBlockWithBroadcast(block.id, { width: resizeResult.width, height: resizeResult.height });
         if (resizeResult.x !== currentBlock.position.x || resizeResult.y !== currentBlock.position.y) {
-          moveBlock(block.id, { x: resizeResult.x, y: resizeResult.y });
+          moveBlockWithBroadcast(block.id, { x: resizeResult.x, y: resizeResult.y });
         }
       }
     };
@@ -235,7 +283,7 @@ export function DraggableBlock({ block, isViewerMode = false }: DraggableBlockPr
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [editorMode, isSelected, block.id, moveBlock, resizeBlock, getBlock, setEditorMode, blocks, startActionGroup, endActionGroup, updateBlockStyles]);
+  }, [editorMode, isSelected, block.id, moveBlockWithBroadcast, resizeBlockWithBroadcast, getBlock, setEditorMode, blocks, startActionGroup, endActionGroup, storeUpdateBlockStyles]);
 
   return (
     <div
