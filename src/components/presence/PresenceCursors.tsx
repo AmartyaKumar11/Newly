@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import type { PresenceSession } from "@/lib/presence/presenceStore";
 import { GhostCursor } from "./GhostCursor";
 
@@ -37,10 +37,11 @@ export function PresenceCursors({
     }
 
     const updateOffset = () => {
+      if (!canvasElement) return;
       const rect = canvasElement.getBoundingClientRect();
       setCanvasOffset({
-        x: rect.left + window.scrollX,
-        y: rect.top + window.scrollY,
+        x: rect.left + (window.scrollX || 0),
+        y: rect.top + (window.scrollY || 0),
       });
     };
 
@@ -57,9 +58,29 @@ export function PresenceCursors({
   }, [canvasElement]);
 
   // Filter sessions with cursor positions
-  const sessionsWithCursors = sessions.filter((s) => s.cursorPosition);
+  // Use useMemo to avoid unnecessary recalculations
+  const sessionsWithCursors = useMemo(
+    () => {
+      const filtered = sessions.filter((s) => s.cursorPosition);
+      // Debug logging to diagnose cursor visibility
+      if (process.env.NODE_ENV === "development" && filtered.length > 0) {
+        console.log("[PresenceCursors] Rendering", filtered.length, "cursors:", filtered.map(s => ({
+          sessionId: s.sessionId.substring(0, 8),
+          role: s.role,
+          cursor: s.cursorPosition,
+          name: s.userDisplayName || "Anonymous"
+        })));
+      }
+      return filtered;
+    },
+    [sessions]
+  );
 
   if (sessionsWithCursors.length === 0) {
+    // Debug: log when no cursors to render
+    if (process.env.NODE_ENV === "development" && sessions.length > 0) {
+      console.log("[PresenceCursors] No cursors to render. Sessions:", sessions.length, "but none have cursorPosition");
+    }
     return null;
   }
 

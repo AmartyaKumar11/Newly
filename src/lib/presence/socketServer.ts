@@ -81,10 +81,23 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketIOServer {
           sessions: allSessions,
         });
 
-        // Send current presence to new client
+        // Send current presence to new client (includes all active sessions)
         socket.emit("presence:update", {
           sessions: allSessions,
         });
+
+        // Debug logging
+        if (process.env.NODE_ENV === "development") {
+          console.log("[socketServer] presence:join - Sent presence:update to new client:", {
+            sessionId: sessionId.substring(0, 8),
+            totalSessions: allSessions.length,
+            sessions: allSessions.map(s => ({
+              sessionId: s.sessionId.substring(0, 8),
+              role: s.role,
+              hasCursor: !!s.cursorPosition,
+            }))
+          });
+        }
       } catch (error) {
         console.error("Error in presence:join:", error);
         socket.emit("presence:error", { message: "Failed to join presence" });

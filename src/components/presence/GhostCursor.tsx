@@ -38,8 +38,23 @@ export function GhostCursor({
   const { x, y } = session.cursorPosition;
 
   // Calculate on-screen position (accounting for canvas offset and zoom)
+  // x, y are canvas-relative coordinates (0,0 is top-left of canvas)
+  // We need to convert to screen coordinates by:
+  // 1. Scaling by zoom
+  // 2. Adding canvas offset (canvas position on screen)
   const screenX = canvasOffset.x + x * zoom;
   const screenY = canvasOffset.y + y * zoom;
+
+  // Debug logging in development
+  if (process.env.NODE_ENV === "development") {
+    console.log("[GhostCursor] Rendering cursor:", {
+      sessionId: session.sessionId.substring(0, 8),
+      canvasCoords: { x, y },
+      screenCoords: { screenX, screenY },
+      canvasOffset,
+      zoom,
+    });
+  }
 
   // Determine color based on role
   const roleColors = {
@@ -57,6 +72,7 @@ export function GhostCursor({
         left: `${screenX}px`,
         top: `${screenY}px`,
         transform: "translate(-50%, -50%)",
+        willChange: "transform", // Optimize for animation
       }}
     >
       {/* Cursor */}
