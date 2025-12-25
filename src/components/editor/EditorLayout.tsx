@@ -35,9 +35,11 @@ interface EditorLayoutProps {
   newsletterId: string;
   editorMode?: "edit" | "view"; // Default: "edit", "view" = read-only viewer mode
   initialNewsletter?: Newsletter | null; // Optional: pre-loaded newsletter data (for viewer mode)
+  isOwner?: boolean; // Default: true, false for share link access (viewer/editor roles)
+  shareToken?: string | null; // Optional: share token for editor role access (for autosave)
 }
 
-export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit", initialNewsletter }: EditorLayoutProps) {
+export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit", initialNewsletter, isOwner = true, shareToken = null }: EditorLayoutProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const {
@@ -64,7 +66,9 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
 
   // Determine role for presence (must be before usePresence hook)
   const isViewerMode = propEditorMode === "view";
-  const presenceRole: AccessRole = isViewerMode ? "viewer" : "owner";
+  // If accessing via share link (isOwner=false), use "editor" or "viewer" based on mode
+  // Otherwise, user is owner
+  const presenceRole: AccessRole = isOwner ? "owner" : (isViewerMode ? "viewer" : "editor");
   
   // Initialize presence (Phase 4.0: Collaboration Foundations)
   // MUST be called before any conditional returns (Rules of Hooks)
@@ -87,8 +91,8 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
 
     async function loadNewsletter() {
       try {
-        // Viewer mode: use pre-loaded newsletter data (no auth required)
-        if (propEditorMode === "view" && initialNewsletter) {
+        // Share link mode (viewer or editor): use pre-loaded newsletter data (no auth required)
+        if (initialNewsletter) {
           setNewsletter(initialNewsletter);
           
           // Load blocks into editor state
@@ -102,7 +106,7 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
           return;
         }
 
-        // Edit mode: load via authenticated API
+        // Owner edit mode: load via authenticated API
         const response = await fetch(`/api/newsletters/${newsletterId}`);
 
         if (response.status === 401) {
@@ -179,16 +183,29 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
 
       const serializedBlocks = serializeBlocks(blocksToSave);
 
-      const response = await fetch(`/api/newsletters/update`, {
+      // Use share token endpoint if accessing via share link (editor role)
+      // Otherwise use authenticated owner endpoint
+      const updateUrl = shareToken 
+        ? `/api/shares/${shareToken}/update`
+        : `/api/newsletters/update`;
+
+      const requestBody = shareToken
+        ? {
+            blocks: serializedBlocks,
+            structureJSON: newsletter?.structureJSON || {},
+          }
+        : {
+            id: newsletterId,
+            blocks: serializedBlocks,
+            structureJSON: newsletter?.structureJSON || {},
+          };
+
+      const response = await fetch(updateUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          id: newsletterId,
-          blocks: serializedBlocks,
-          structureJSON: newsletter?.structureJSON || {},
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -213,7 +230,7 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
       isSavingRef.current = false;
       setSaving(false);
     }
-  }, [blocks, isDirty, isSaving, lifecycleState, newsletterId, newsletter?.structureJSON, setSaving, setLastSaved, setDirty, propEditorMode]);
+  }, [blocks, isDirty, isSaving, lifecycleState, newsletterId, newsletter?.structureJSON, setSaving, setLastSaved, setDirty, propEditorMode, shareToken]);
 
   // Debounced autosave (using hash to prevent unnecessary triggers)
   // DISABLED in viewer mode - no mutations allowed
@@ -355,6 +372,7 @@ export function EditorLayout({ newsletterId, editorMode: propEditorMode = "edit"
           onTitleChange={isViewerMode ? undefined : handleTitleChange}
           onAIClick={isViewerMode ? undefined : () => setIsAIPanelOpen(true)}
           isViewerMode={isViewerMode}
+          isOwner={isOwner}
           presence={presence}
           role={presenceRole}
         />

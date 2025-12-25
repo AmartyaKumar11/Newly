@@ -73,15 +73,39 @@ export default async function SharePage({ params }: SharePageProps) {
       updatedAt: newsletter.updatedAt,
     };
 
-    // Render editor in viewer mode (read-only)
-    // VIEWER MODE ENFORCEMENT:
+    // Determine editor mode based on share token role
+    // SECURITY: Role is authoritative and comes from server-side token validation
+    // - "viewer" role = read-only mode (no mutations)
+    // - "editor" role = edit mode (can modify content, but no admin actions)
+    const editorMode = shareToken.role === "editor" ? "edit" : "view";
+    
+    // Render editor with role-appropriate mode
+    // VIEWER MODE ENFORCEMENT (role === "viewer"):
     // - No block selection, dragging, or resizing
     // - No keyboard shortcuts (delete, undo, redo)
     // - No autosave (blocks never marked dirty)
     // - No AI panels or uploads
     // - No property panels
     // - Blocks render normally but are read-only
-    return <EditorLayout newsletterId={newsletterId} editorMode="view" initialNewsletter={newsletterData} />;
+    //
+    // EDITOR MODE (role === "editor"):
+    // - Can select, drag, resize blocks
+    // - Can use keyboard shortcuts
+    // - Autosave enabled (uses share token endpoint)
+    // - AI panels and uploads enabled
+    // - Property panels enabled
+    // - BUT: Cannot access share modal or publish (owner-only features)
+    // SECURITY: isOwner=false ensures share link users (viewer or editor) cannot access owner-only features
+    // Pass shareToken for editor role to enable autosave via share token endpoint
+    return (
+      <EditorLayout 
+        newsletterId={newsletterId} 
+        editorMode={editorMode} 
+        initialNewsletter={newsletterData} 
+        isOwner={false}
+        shareToken={shareToken.role === "editor" ? token : null}
+      />
+    );
   } catch (error) {
     console.error("Failed to resolve share token:", error);
     notFound();

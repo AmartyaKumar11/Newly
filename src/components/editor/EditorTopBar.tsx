@@ -15,11 +15,12 @@ interface EditorTopBarProps {
   onTitleChange?: (title: string) => void;
   onAIClick?: () => void;
   isViewerMode?: boolean; // Read-only viewer mode (no mutations allowed)
+  isOwner?: boolean; // True if user is newsletter owner (can share/publish), false for share link access
   presence?: PresenceState; // Phase 4.0: Presence awareness
   role?: AccessRole; // User's role for presence visibility
 }
 
-export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick, isViewerMode = false, presence, role = "owner" }: EditorTopBarProps) {
+export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick, isViewerMode = false, isOwner = true, presence, role = "owner" }: EditorTopBarProps) {
   const { isDirty, isSaving, lastSaved } = useEditorStore();
   const { canUndo, canRedo, undo, redo, zoomLevel, setZoomLevel } = useEditorStateStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -165,8 +166,8 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick, isView
           </button>
         </div>
 
-        {/* Share Button - only in edit mode */}
-        {!isViewerMode && newsletterId && (
+        {/* Share Button - only for owners in edit mode */}
+        {isOwner && !isViewerMode && newsletterId && (
           <button
             onClick={() => setIsShareModalOpen(true)}
             className="flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 cursor-pointer"
@@ -260,8 +261,8 @@ export function EditorTopBar({ newsletterTitle, onTitleChange, onAIClick, isView
         )}
       </div>
 
-      {/* Share Modal */}
-      {newsletterId && (
+      {/* Share Modal - only for owners */}
+      {isOwner && newsletterId && (
         <ShareModal
           newsletterId={newsletterId}
           isOpen={isShareModalOpen}
