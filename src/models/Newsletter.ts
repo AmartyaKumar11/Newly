@@ -92,6 +92,23 @@ const NewsletterSchema = new Schema(
       default: null
     },
 
+    // Phase 3.5: Publishing system
+    // Reference to the current published snapshot (immutable)
+    publishedSnapshotId: {
+      type: Schema.Types.ObjectId,
+      ref: "PublishedSnapshot",
+      default: null,
+      index: true,
+    },
+
+    // Human-readable URL slug (globally unique, locked when published)
+    slug: {
+      type: String,
+      default: null,
+      trim: true,
+      index: { unique: true, sparse: true }, // Sparse index: only indexes non-null values
+    },
+
     lastAutosave: {
       type: Date,
       default: null
